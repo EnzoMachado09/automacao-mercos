@@ -10,7 +10,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from tkinter import Tk, Label, Button, Frame
+from tkinter import Tk, Label, Button, Frame, Text, Scrollbar
 from tkinter import font as tkFont
 
 try:
@@ -27,8 +27,8 @@ class HotKeyLauncher:
         self.is_running = False
         self.root = Tk()
         self.root.title("Automação Mercos - Hotkey Launcher")
-        self.root.geometry("400x200")
-        self.root.resizable(False, False)
+        self.root.geometry("600x500")
+        self.root.resizable(True, True)
         
         # Tenta colocar a janela sempre no topo
         try:
@@ -39,7 +39,7 @@ class HotKeyLauncher:
         # Define estilos
         title_font = tkFont.Font(family="Arial", size=14, weight="bold")
         status_font = tkFont.Font(family="Arial", size=12)
-        info_font = tkFont.Font(family="Arial", size=10)
+        info_font = tkFont.Font(family="Courier", size=9)
         
         # Frame principal
         main_frame = Frame(self.root, bg="#f0f0f0")
@@ -53,7 +53,7 @@ class HotKeyLauncher:
             bg="#f0f0f0",
             fg="#333333"
         )
-        title_label.pack(pady=(10, 20))
+        title_label.pack(pady=(10, 10))
         
         # Status
         self.status_label = Label(
@@ -65,33 +65,53 @@ class HotKeyLauncher:
             relief="solid",
             borderwidth=2,
             padx=20,
-            pady=15
+            pady=10
         )
-        self.status_label.pack(fill="x", pady=(0, 15))
+        self.status_label.pack(fill="x", pady=(0, 10))
         
         # Instruções
         info_frame = Frame(main_frame, bg="#f0f0f0")
-        info_frame.pack(fill="x", pady=(0, 15))
+        info_frame.pack(fill="x", pady=(0, 10))
         
         info1 = Label(
             info_frame,
-            text="🟢 F6: Iniciar/Parar",
+            text="🟢 F6: Iniciar/Parar  |  🔴 ESC: Fechar",
             font=info_font,
             bg="#f0f0f0",
             fg="#333333"
         )
         info1.pack(anchor="w")
         
-        info2 = Label(
-            info_frame,
-            text="🔴 ESC: Fechar",
-            font=info_font,
+        # Área de logs
+        log_label = Label(
+            main_frame,
+            text="📋 Saída da automação:",
+            font=tkFont.Font(family="Arial", size=10, weight="bold"),
             bg="#f0f0f0",
             fg="#333333"
         )
-        info2.pack(anchor="w")
+        log_label.pack(anchor="w", pady=(5, 0))
         
-        # Botão manual
+        # Text com scrollbar
+        log_frame = Frame(main_frame, bg="white", relief="solid", borderwidth=1)
+        log_frame.pack(fill="both", expand=True, pady=(0, 10))
+        
+        scrollbar = Scrollbar(log_frame)
+        scrollbar.pack(side="right", fill="y")
+        
+        self.log_text = Text(
+            log_frame,
+            font=info_font,
+            bg="white",
+            fg="#333333",
+            yscrollcommand=scrollbar.set,
+            state="disabled",
+            height=12
+        )
+        self.log_text.pack(fill="both", expand=True)
+        scrollbar.config(command=self.log_text.yview)
+        
+        # Botões
         button_frame = Frame(main_frame, bg="#f0f0f0")
         button_frame.pack(fill="x")
         
@@ -127,9 +147,18 @@ class HotKeyLauncher:
         keyboard.add_hotkey("f6", self.toggle_automation)
         keyboard.add_hotkey("esc", self.close_app)
         
-        print("✅ Hotkey Launcher iniciado")
-        print("   F6: Iniciar/Parar automação")
-        print("   ESC: Fechar aplicação")
+        self.log("✅ Hotkey Launcher iniciado")
+        self.log("   F6: Iniciar/Parar automação")
+        self.log("   ESC: Fechar aplicação")
+    
+    def log(self, message):
+        """Adiciona mensagem ao log"""
+        self.log_text.config(state="normal")
+        self.log_text.insert("end", message + "\n")
+        self.log_text.see("end")
+        self.log_text.config(state="disabled")
+        self.root.update()
+        print(message)  # Também imprime no console
     
     def toggle_automation(self):
         """Inicia ou para a automação"""
@@ -141,6 +170,7 @@ class HotKeyLauncher:
     def start_automation(self):
         """Inicia a automação em thread separada"""
         if self.is_running:
+            self.log("⚠️  Automação já em execução")
             return
         
         # Obtém o diretório de saída
@@ -164,6 +194,8 @@ class HotKeyLauncher:
             daemon=True
         )
         thread.start()
+        self.log(f"▶️  Iniciando thread de automação...")
+        self.log(f"   Diretório de saída: {output_dir}")
     
     def _run_automation(self, output_dir):
         """Executa a automação (rodando em thread)"""
@@ -171,6 +203,7 @@ class HotKeyLauncher:
             python_exe = Path(__file__).parent / ".venv" / "Scripts" / "python.exe"
             
             if not python_exe.exists():
+                self.log(f"❌ Python não encontrado em: {python_exe}")
                 self.show_error("Python virtual env não encontrado")
                 return
             
@@ -180,8 +213,7 @@ class HotKeyLauncher:
                 "--output-dir", output_dir
             ]
             
-            print(f"\n▶️  Iniciando automação...")
-            print(f"   Comando: {' '.join(cmd)}")
+            self.log(f"▶️  Executando: {' '.join(cmd)}")
             
             # Usa Popen para que seja não-bloqueante
             self.process = subprocess.Popen(
@@ -189,23 +221,38 @@ class HotKeyLauncher:
                 cwd=Path(__file__).parent,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                bufsize=1
             )
             
-            # Aguarda o processo terminar
-            stdout, stderr = self.process.communicate()
+            self.log(f"✅ Processo iniciado (PID: {self.process.pid})")
+            
+            # Lê a saída em tempo real
+            while True:
+                if self.process.poll() is not None:
+                    # Processo terminou
+                    break
+                
+                line = self.process.stdout.readline()
+                if line:
+                    self.log(f"   {line.rstrip()}")
+            
+            # Lê resíduos
+            remaining_stdout, remaining_stderr = self.process.communicate()
+            if remaining_stdout:
+                for line in remaining_stdout.split('\n'):
+                    if line.strip():
+                        self.log(f"   {line}")
             
             if self.process.returncode == 0:
-                print("✅ Automação concluída com sucesso!")
+                self.log("✅ Automação concluída com sucesso!")
             else:
-                print(f"❌ Automação finalizou com erro (código {self.process.returncode})")
-                if stderr:
-                    print(f"Erro:\n{stderr}")
-                if stdout:
-                    print(f"Saída:\n{stdout}")
+                self.log(f"❌ Automação finalizou com código: {self.process.returncode}")
+                if remaining_stderr:
+                    self.log(f"Erro:\n{remaining_stderr}")
         
         except Exception as e:
-            print(f"❌ Erro ao executar automação: {e}")
+            self.log(f"❌ Erro ao executar automação: {e}")
             self.show_error(f"Erro: {str(e)}")
         
         finally:
@@ -219,29 +266,31 @@ class HotKeyLauncher:
             )
             self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
             self.root.update()
+            self.log("="*50)
     
     def stop_automation(self):
         """Para a automação em execução"""
         if not self.process:
-            print("⚠️  Nenhum processo em execução")
+            self.log("⚠️  Nenhum processo em execução")
             return
         
         try:
-            print("\n⏹️  Parando automação...")
+            self.log(f"\n⏹️  Parando processo (PID: {self.process.pid})...")
             # Tenta terminar graciosamente primeiro
             self.process.terminate()
             
             try:
                 self.process.wait(timeout=3)
-                print("✅ Automação parada")
+                self.log("✅ Automação parada")
             except subprocess.TimeoutExpired:
                 # Se não terminar em 3s, mata forçadamente
+                self.log("⚠️  Forçando encerramento...")
                 self.process.kill()
                 self.process.wait()
-                print("⚠️  Automação forçadamente encerrada")
+                self.log("⚠️  Automação forçadamente encerrada")
         
         except Exception as e:
-            print(f"❌ Erro ao parar: {e}")
+            self.log(f"❌ Erro ao parar: {e}")
         
         finally:
             self.is_running = False
@@ -253,10 +302,11 @@ class HotKeyLauncher:
             )
             self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
             self.root.update()
+            self.log("="*50)
     
     def show_error(self, message):
         """Mostra erro e reseta UI"""
-        print(f"❌ {message}")
+        self.log(f"❌ {message}")
         self.is_running = False
         self.status_label.config(text=f"❌ ERRO", bg="#ffcccc", fg="#990000")
         self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
@@ -265,9 +315,10 @@ class HotKeyLauncher:
     def close_app(self):
         """Fecha a aplicação"""
         if self.is_running:
+            self.log("⚠️  Parando automação antes de fechar...")
             self.stop_automation()
         
-        print("\n👋 Encerrando Hotkey Launcher...")
+        self.log("\n👋 Encerrando Hotkey Launcher...")
         self.root.quit()
         self.root.destroy()
     
@@ -277,6 +328,10 @@ class HotKeyLauncher:
             self.root.mainloop()
         except KeyboardInterrupt:
             self.close_app()
+        except Exception as e:
+            self.log(f"❌ Erro fatal: {e}")
+            import traceback
+            self.log(traceback.format_exc())
 
 
 if __name__ == "__main__":
