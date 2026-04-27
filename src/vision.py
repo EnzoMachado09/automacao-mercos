@@ -5,6 +5,9 @@ from hashlib import sha1
 from pathlib import Path
 from PIL import Image, ImageEnhance, ImageFilter
 import logging
+import subprocess
+import tempfile
+import sys
 
 try:
     import pytesseract
@@ -74,22 +77,45 @@ def ocr_image(image: Image.Image, tesseract_cmd: str | None = None, debug_path: 
         processed_image.save(debug_path)
         LOGGER.info(f"💾 Saved debug image: {debug_path}")
     
-    # Tenta OCR em português com dados de confiança
+    # Tenta OCR em português com timeout
     try:
-        LOGGER.info("📖 Running Tesseract OCR with lang=por...")
-        text = pytesseract.image_to_string(processed_image, lang="por")
-        LOGGER.info(f"📝 Raw OCR text: '{text}'")
+        LOGGER.info("📖 Running Tesseract OCR with lang=por... (timeout: 10 segundos)")
         
-        data = pytesseract.image_to_data(processed_image, lang="por", output_type="dict")
+        # Salva temporariamente a imagem processada para OCR
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp_path = tmp.name
+            processed_image.save(tmp_path)
         
-        # Calcula confiança média
-        confidences = [int(conf) for conf in data["conf"] if int(conf) > 0]
-        confidence = sum(confidences) / len(confidences) if confidences else 0
+        try:
+            # Tenta com timeout de 10 segundos
+            LOGGER.info(f"   Tesseract command: {tesseract_cmd or 'default'}")
+            text = pytesseract.image_to_string(processed_image, lang="por", timeout=10)
+            LOGGER.info(f"📝 Raw OCR text: '{text}'")
+            
+            # Tenta pegar dados de confiança
+            try:
+                data = pytesseract.image_to_data(processed_image, lang="por", output_type="dict", timeout=10)
+                confidences = [int(conf) for conf in data["conf"] if int(conf) > 0]
+                confidence = sum(confidences) / len(confidences) if confidences else 0
+            except Exception as conf_err:
+                LOGGER.warning(f"⚠️  Não conseguiu calcular confiança: {conf_err}")
+                confidence = 0
+            
+            extracted_text = normalize_text(text)
+            LOGGER.info(f"✅ OCR Success - Text: '{extracted_text}' | Confidence: {confidence:.1f}%")
+            
+            return VisionResult(text=extracted_text, confidence=confidence)
         
-        extracted_text = normalize_text(text)
-        LOGGER.info(f"✅ OCR Success - Text: '{extracted_text}' | Confidence: {confidence:.1f}%")
-        
-        return VisionResult(text=extracted_text, confidence=confidence)
+        finally:
+            # Limpa arquivo temporário
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except:
+                pass
+    
+    except subprocess.TimeoutExpired:
+        LOGGER.error("❌ Tesseract TIMEOUT - tomou mais de 10 segundos (pode estar travado)")
+        raise RuntimeError("Tesseract timeout - try manually entering name")
     except Exception as e:
         LOGGER.error(f"❌ Tesseract OCR error: {e}", exc_info=True)
         raise

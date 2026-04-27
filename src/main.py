@@ -3,6 +3,7 @@ from __future__ import annotations
 from argparse import ArgumentParser
 from pathlib import Path
 import logging
+import sys
 
 from .automation import MercosAutomation, load_automation_config
 from .config import default_config_path
@@ -19,7 +20,32 @@ def build_parser() -> ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    
+    # Configura logging com console E arquivo
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    log_file = output_dir / "automation.log"
+    
+    # Cria formatter
+    formatter = logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s: %(message)s")
+    
+    # Configura root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, args.log_level.upper(), logging.INFO))
+    
+    # Handler para console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    
+    # Handler para arquivo
+    try:
+        file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+        print(f"📁 Logs salvos em: {log_file}")
+    except Exception as e:
+        print(f"⚠️  Erro ao criar arquivo de log: {e}")
 
     config_path = Path(args.config)
     config = load_automation_config(config_path)

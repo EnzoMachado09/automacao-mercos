@@ -154,7 +154,7 @@ class MercosAutomation:
             # Salva screenshot de debug
             debug_path = self.output_dir / f"debug_ocr_{self._processed + 1:04d}.png"
             
-            LOGGER.info(f"🔍 Executando OCR (Tesseract: {self.config.tesseract_cmd or 'padrão'})")
+            LOGGER.info(f"🔍 Iniciando OCR (Tesseract: {self.config.tesseract_cmd or 'padrão'})...")
             result = ocr_image(screenshot, tesseract_cmd=self.config.tesseract_cmd, debug_path=debug_path)
             
             LOGGER.info(f"📊 OCR Result - Confidence: {result.confidence:.1f}% | Text: '{result.text}'")
@@ -165,8 +165,17 @@ class MercosAutomation:
                 LOGGER.info(f"✅ OCR SUCCESS (confidence={result.confidence:.1f}%): '{extracted}'")
                 return extracted
             else:
-                LOGGER.warning(f"⚠️  OCR Confidence too low ({result.confidence:.1f}% < 20%)")
+                confidence_val = result.confidence if result.confidence else 0
+                LOGGER.warning(f"⚠️  OCR Confidence too low ({confidence_val:.1f}% < 20%)")
                 LOGGER.warning(f"⚠️  OCR Text: '{result.text}'")
+        
+        except RuntimeError as e:
+            # Timeout ou erro crítico do Tesseract
+            if "timeout" in str(e).lower():
+                LOGGER.error(f"❌ TESSERACT TIMEOUT: {e}")
+                LOGGER.error("⚠️  Tesseract está demorando muito. Isso pode ser um problema de instalação.")
+            else:
+                LOGGER.error(f"❌ OCR Runtime Error: {e}", exc_info=True)
         except Exception as exc:  # pragma: no cover - runtime fallback
             LOGGER.error(f"❌ OCR Exception: {exc}", exc_info=True)
 
