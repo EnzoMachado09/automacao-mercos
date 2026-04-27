@@ -402,27 +402,19 @@ if __name__ == "__main__":
         root_temp = Tk()
         root_temp.withdraw()
         
-        result = messagebox.askyesno(
-            "Tesseract OCR não encontrado",
-            "Tesseract OCR é necessário para extrair nomes de clientes automaticamente.\n\n"
-            "Deseja instalar agora? (Será instalado automaticamente)\n\n"
-            "Clique SIM para instalar, NÃO para continuar sem OCR."
+        result = messagebox.showinfo(
+            "Tesseract OCR nao encontrado",
+            "Tesseract OCR e necessario para extrair nomes de clientes automaticamente.\n\n"
+            "Para instalar:\n"
+            "1. Visite: https://github.com/UB-Mannheim/tesseract/releases\n"
+            "2. Baixe: tesseract-ocr-w64-setup-v*.exe\n"
+            "3. Execute e instale em: C:\\Program Files\\Tesseract-OCR\n"
+            "4. Reinicie a automacao\n\n"
+            "Enquanto isso, voc pode digitar manualmente os nomes dos clientes.\n\n"
+            "Clique OK para continuar..."
         )
         
         root_temp.destroy()
-        
-        if result:
-            print("📥 Instalando Tesseract OCR...")
-            try:
-                install_script = Path(__file__).parent / "install_tesseract.ps1"
-                subprocess.run(
-                    ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(install_script)],
-                    check=True
-                )
-                print("✅ Tesseract instalado com sucesso!")
-            except Exception as e:
-                print(f"❌ Erro ao instalar Tesseract: {e}")
-                print("⚠️  Você pode instalar manualmente depois.")
     
     launcher = HotKeyLauncher()
     launcher.run()
