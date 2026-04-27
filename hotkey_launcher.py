@@ -31,7 +31,7 @@ class HotKeyLauncher:
         self.root.resizable(True, True)
         
         # Agora cria StringVar DEPOIS de ter a janela raiz
-        self.max_orders = StringVar(value="0")  # 0 = processar todos
+        self.max_orders = StringVar(value="1")  # Valor padrão: 1 pedido
         
         # Tenta colocar a janela sempre no topo
         try:
@@ -103,10 +103,10 @@ class HotKeyLauncher:
         
         max_orders_label = Label(
             max_orders_frame,
-            text="Máximo de pedidos (0=todos):",
+            text="Quantos pedidos processar? *",
             font=info_font,
             bg="#e8f5e9",
-            fg="#333333"
+            fg="#1b5e20"
         )
         max_orders_label.pack(side="left", padx=(0, 10))
         
@@ -118,6 +118,16 @@ class HotKeyLauncher:
             justify="center"
         )
         self.max_orders_entry.pack(side="left")
+        
+        # Dica
+        dica = Label(
+            max_orders_frame,
+            text="(ex: 5, 10, 100)",
+            font=tkFont.Font(family="Arial", size=8),
+            bg="#e8f5e9",
+            fg="#666666"
+        )
+        dica.pack(side="left", padx=(5, 0))
         
         # Área de logs
         log_label = Label(
@@ -210,6 +220,16 @@ class HotKeyLauncher:
             self.log("⚠️  Automação já em execução")
             return
         
+        # Valida o campo de max_orders
+        try:
+            max_orders_val = int(self.max_orders.get())
+            if max_orders_val <= 0:
+                self.log("❌ Erro: Digite um número maior que 0 (ex: 5, 10, 100)")
+                return
+        except ValueError:
+            self.log("❌ Erro: Digite um número válido (ex: 5, 10, 100)")
+            return
+        
         # Obtém o diretório de saída
         output_dir = Path(__file__).parent / "out"
         output_dir.mkdir(exist_ok=True)
@@ -251,16 +271,18 @@ class HotKeyLauncher:
                 "--output-dir", output_dir
             ]
             
-            # Adiciona max_orders se especificado
+            # Adiciona max_orders
             try:
                 max_orders_val = int(self.max_orders.get())
                 if max_orders_val > 0:
                     cmd.extend(["--max-orders", str(max_orders_val)])
                     self.log(f"⚙️  Máximo de pedidos: {max_orders_val}")
                 else:
-                    self.log(f"⚙️  Processando todos os pedidos visíveis")
+                    self.log(f"⚙️  Erro: Max orders deve ser > 0")
+                    return
             except ValueError:
-                self.log("⚠️  max_orders inválido, usando 0 (processar todos)")
+                self.log("⚙️  Erro: Max orders inválido")
+                return
             
             self.log(f"▶️  Executando: {' '.join(cmd)}")
             
