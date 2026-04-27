@@ -21,6 +21,12 @@ def build_parser() -> ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     
+    # Força UTF-8 no console Windows
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+    
     # Configura logging com console E arquivo
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -43,9 +49,9 @@ def main() -> int:
         file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
-        print(f"📁 Logs salvos em: {log_file}")
+        print(f"Logs salvos em: {log_file}")
     except Exception as e:
-        print(f"⚠️  Erro ao criar arquivo de log: {e}")
+        print(f"Erro ao criar arquivo de log: {e}")
 
     config_path = Path(args.config)
     config = load_automation_config(config_path)
