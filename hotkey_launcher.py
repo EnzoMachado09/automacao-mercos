@@ -387,5 +387,42 @@ class HotKeyLauncher:
 
 
 if __name__ == "__main__":
+    # Verifica Tesseract antes de iniciar
+    tesseract_paths = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+    
+    tesseract_found = any(Path(p).exists() for p in tesseract_paths)
+    
+    if not tesseract_found:
+        import subprocess
+        from tkinter import messagebox
+        
+        root_temp = Tk()
+        root_temp.withdraw()
+        
+        result = messagebox.askyesno(
+            "Tesseract OCR não encontrado",
+            "Tesseract OCR é necessário para extrair nomes de clientes automaticamente.\n\n"
+            "Deseja instalar agora? (Será instalado automaticamente)\n\n"
+            "Clique SIM para instalar, NÃO para continuar sem OCR."
+        )
+        
+        root_temp.destroy()
+        
+        if result:
+            print("📥 Instalando Tesseract OCR...")
+            try:
+                install_script = Path(__file__).parent / "install_tesseract.ps1"
+                subprocess.run(
+                    ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(install_script)],
+                    check=True
+                )
+                print("✅ Tesseract instalado com sucesso!")
+            except Exception as e:
+                print(f"❌ Erro ao instalar Tesseract: {e}")
+                print("⚠️  Você pode instalar manualmente depois.")
+    
     launcher = HotKeyLauncher()
     launcher.run()

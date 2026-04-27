@@ -17,7 +17,39 @@ Instale as dependencias com:
 pip install -r requirements.txt
 ```
 
-OCR e opcional. Se quiser extrair o nome do cliente automaticamente, instale tambem o Tesseract no Windows e ajuste o PATH.
+### OCR para Extração Automática de Nomes (Recomendado)
+
+A automação usa **Tesseract OCR** para extrair os nomes dos clientes automaticamente. Sem Tesseract, você terá que digitar manualmente.
+
+#### Instalação Automática (Recomendado)
+
+Ao abrir o launcher, se Tesseract não estiver instalado, você verá um popup oferecendo instalação automática. Clique **SIM** para instalar.
+
+#### Instalação Manual
+
+Se a instalação automática não funcionar:
+
+1. Visite: https://github.com/UB-Mannheim/tesseract/releases
+2. Baixe: `tesseract-ocr-w64-setup-v5.3.0.exe` (ou versão mais recente)
+3. Execute e instale em: `C:\Program Files\Tesseract-OCR`
+4. Reinicie a aplicação
+
+#### Verificar Instalação
+
+Abra PowerShell e digite:
+```powershell
+& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --version
+```
+
+Se mostrar a versão, está instalado! ✅
+
+#### Debug de OCR
+
+Se o OCR não está funcionando bem:
+
+1. Verifique se a região `customer_name_region` está correta em `automation_config.json`
+2. Cada execução gera screenshots de debug em `out/debug_ocr_0001.png`, etc
+3. Abra essas imagens para verificar se o nome está sendo capturado corretamente
 
 ## Execucao
 

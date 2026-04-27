@@ -150,11 +150,18 @@ class MercosAutomation:
         )
 
         try:
-            result = ocr_image(screenshot, tesseract_cmd=self.config.tesseract_cmd)
-            if result.text:
+            # Salva screenshot de debug
+            debug_path = self.output_dir / f"debug_ocr_{self._processed + 1:04d}.png"
+            
+            result = ocr_image(screenshot, tesseract_cmd=self.config.tesseract_cmd, debug_path=debug_path)
+            LOGGER.info(f"OCR confidence: {result.confidence:.1f}% - Text: {result.text}")
+            
+            if result.text and result.confidence and result.confidence > 30:
                 extracted = self._sanitize_customer_name(result.text)
-                LOGGER.info(f"OCR extracted: {extracted}")
+                LOGGER.info(f"✓ OCR extracted (confidence={result.confidence:.1f}%): {extracted}")
                 return extracted
+            else:
+                LOGGER.warning(f"⚠ OCR confidence too low ({result.confidence:.1f}%): {result.text}")
         except Exception as exc:  # pragma: no cover - runtime fallback
             LOGGER.warning("OCR failed: %s", exc)
 
