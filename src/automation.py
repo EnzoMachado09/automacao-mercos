@@ -28,8 +28,8 @@ class MercosAutomation:
         self.output_dir = output_dir
         self._processed = 0
 
-    def run(self, start_date: str, end_date: str) -> list[OrderExportResult]:
-        LOGGER.info("Starting automation for period %s to %s", start_date, end_date)
+    def run(self) -> list[OrderExportResult]:
+        LOGGER.info("Starting automation for pedidos na lista")
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         if self.config.selection_probe_region is None and self.config.max_orders is None:
@@ -41,8 +41,10 @@ class MercosAutomation:
                 LOGGER.info("Reached max_orders=%s", self.config.max_orders)
                 break
 
+            self.open_report_variation()
+            self.export_to_pdf()
             customer_name = self.read_customer_name()
-            file_path = self.export_current_order(customer_name)
+            file_path = self.save_pdf(customer_name)
             selection_moved = self.advance_selection_if_possible()
 
             result = OrderExportResult(
@@ -70,7 +72,6 @@ class MercosAutomation:
         return results
 
     def export_current_order(self, customer_name: str) -> Path:
-        self.open_report_variation()
         self.export_to_pdf()
         file_path = self.save_pdf(customer_name)
         return file_path
@@ -107,9 +108,9 @@ class MercosAutomation:
             time.sleep(self.config.ui_delay)
 
         pyautogui.hotkey("ctrl", "a")
-        time.sleep(self.config.ui_delay)
-        pyautogui.write(file_path.stem, interval=0.01)
-        time.sleep(self.config.ui_delay)
+        time.sleep(self.config.ui_delay * 2)
+        pyautogui.write(file_path.stem, interval=0.02)
+        time.sleep(self.config.ui_delay * 2)
         
         if self.config.save_button is not None:
             pyautogui.click(self.config.save_button.x, self.config.save_button.y)
