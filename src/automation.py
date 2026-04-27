@@ -78,24 +78,25 @@ class MercosAutomation:
 
     def open_report_variation(self) -> None:
         self._press("f10")
-        self._sleep()
+        time.sleep(2.0)  # Delay apos F10
         for _ in range(self.config.report_variation_down_presses):
             self._press("down")
-            self._sleep()
+            time.sleep(0.5)  # Delay entre setas
+        time.sleep(1.0)  # Delay apos ultima seta
         self._press(self.config.report_variation_confirm_key)
-        self._sleep()
+        time.sleep(2.0)  # Delay apos ESC
         # Verificar se popup apareceu apos confirmar selecao
         self._press(self.config.optional_popup_key)
-        time.sleep(self.config.extra_wait_on_popup)
+        time.sleep(3.0)  # Delay apos ENTER (antes do PDF)
 
     def export_to_pdf(self) -> None:
         if self.config.export_pdf_button is None:
             raise RuntimeError("export_pdf_button is not configured")
 
         pyautogui.click(self.config.export_pdf_button.x, self.config.export_pdf_button.y)
-        time.sleep(self.config.export_confirm_delay)
+        time.sleep(2.0)  # Delay apos clique no PDF
         self._press("enter")
-        time.sleep(self.config.export_confirm_delay)
+        time.sleep(2.0)  # Delay apos ENTER de confirmacao
 
     def save_pdf(self, customer_name: str) -> Path:
         safe_name = self._safe_filename(customer_name)
