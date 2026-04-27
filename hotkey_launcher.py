@@ -183,17 +183,26 @@ class HotKeyLauncher:
             print(f"\n▶️  Iniciando automação...")
             print(f"   Comando: {' '.join(cmd)}")
             
-            self.process = subprocess.run(
+            # Usa Popen para que seja não-bloqueante
+            self.process = subprocess.Popen(
                 cmd,
                 cwd=Path(__file__).parent,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True
             )
+            
+            # Aguarda o processo terminar
+            stdout, stderr = self.process.communicate()
             
             if self.process.returncode == 0:
                 print("✅ Automação concluída com sucesso!")
             else:
-                print(f"❌ Automação finalizou com erro:\n{self.process.stderr}")
+                print(f"❌ Automação finalizou com erro (código {self.process.returncode})")
+                if stderr:
+                    print(f"Erro:\n{stderr}")
+                if stdout:
+                    print(f"Saída:\n{stdout}")
         
         except Exception as e:
             print(f"❌ Erro ao executar automação: {e}")
@@ -214,28 +223,36 @@ class HotKeyLauncher:
     def stop_automation(self):
         """Para a automação em execução"""
         if not self.process:
+            print("⚠️  Nenhum processo em execução")
             return
         
         try:
             print("\n⏹️  Parando automação...")
+            # Tenta terminar graciosamente primeiro
             self.process.terminate()
-            self.process.wait(timeout=5)
-            print("✅ Automação parada")
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            print("⚠️  Automação forçadamente encerrada")
+            
+            try:
+                self.process.wait(timeout=3)
+                print("✅ Automação parada")
+            except subprocess.TimeoutExpired:
+                # Se não terminar em 3s, mata forçadamente
+                self.process.kill()
+                self.process.wait()
+                print("⚠️  Automação forçadamente encerrada")
+        
         except Exception as e:
             print(f"❌ Erro ao parar: {e}")
         
-        self.is_running = False
-        self.process = None
-        self.status_label.config(
-            text="⏹️  PARADA",
-            bg="#ffcccc",
-            fg="#990000"
-        )
-        self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
-        self.root.update()
+        finally:
+            self.is_running = False
+            self.process = None
+            self.status_label.config(
+                text="⏹️  PARADA",
+                bg="#ffcccc",
+                fg="#990000"
+            )
+            self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
+            self.root.update()
     
     def show_error(self, message):
         """Mostra erro e reseta UI"""
