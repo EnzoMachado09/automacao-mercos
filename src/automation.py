@@ -108,9 +108,19 @@ class MercosAutomation:
                 self.config.save_dialog_filename_field.y,
             )
             time.sleep(self.config.ui_delay)
+            
+            # Double-click para selecionar todo o texto
+            pyautogui.click(
+                self.config.save_dialog_filename_field.x,
+                self.config.save_dialog_filename_field.y,
+            )
+            time.sleep(0.1)
 
+        # Seleciona tudo (Ctrl+A)
         pyautogui.hotkey("ctrl", "a")
         time.sleep(self.config.ui_delay * 2)
+        
+        # Escreve o novo nome
         pyautogui.write(file_path.stem, interval=0.02)
         time.sleep(self.config.ui_delay * 2)
         
@@ -127,8 +137,8 @@ class MercosAutomation:
 
     def read_customer_name(self) -> str:
         if self.config.customer_name_region is None:
-            LOGGER.warning("customer_name_region not configured; using fallback name")
-            return self._fallback_name()
+            LOGGER.warning("customer_name_region not configured; asking user for name")
+            return self._ask_user_for_name()
 
         screenshot = pyautogui.screenshot(
             region=(
@@ -142,11 +152,14 @@ class MercosAutomation:
         try:
             result = ocr_image(screenshot, tesseract_cmd=self.config.tesseract_cmd)
             if result.text:
-                return self._sanitize_customer_name(result.text)
+                extracted = self._sanitize_customer_name(result.text)
+                LOGGER.info(f"OCR extracted: {extracted}")
+                return extracted
         except Exception as exc:  # pragma: no cover - runtime fallback
             LOGGER.warning("OCR failed: %s", exc)
 
-        return self._fallback_name()
+        LOGGER.warning("OCR extraction failed; asking user for name")
+        return self._ask_user_for_name()
 
     def advance_selection_if_possible(self) -> bool | None:
         if self.config.selection_probe_region is None:
@@ -166,6 +179,31 @@ class MercosAutomation:
 
     def _fallback_name(self) -> str:
         return f"{self.config.fallback_customer_name_prefix}_{self._processed + 1:04d}"
+
+    def _ask_user_for_name(self) -> str:
+        """Abre um popup para o usuário digitar o nome do cliente"""
+        try:
+            from tkinter import Tk, simpledialog
+            
+            root = Tk()
+            root.withdraw()  # Esconde a janela principal
+            root.attributes("-topmost", True)  # Coloca o popup no topo
+            
+            name = simpledialog.askstring(
+                "Nome do Cliente",
+                f"Digite o nome do cliente (Pedido #{self._processed + 1}):",
+                parent=root
+            )
+            
+            root.destroy()
+            
+            if name:
+                return self._sanitize_customer_name(name)
+        except Exception as exc:
+            LOGGER.error(f"Failed to ask user for name: {exc}")
+        
+        # Se algo falhar ou usuário cancelar, usa fallback
+        return self._fallback_name()
 
     def _sanitize_customer_name(self, text: str) -> str:
         cleaned = normalize_text(text)
