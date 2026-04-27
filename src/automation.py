@@ -86,6 +86,9 @@ class MercosAutomation:
             self._sleep()
         self._press(self.config.report_variation_confirm_key)
         self._sleep()
+        # Verificar se popup apareceu apos confirmar selecao
+        self._press(self.config.optional_popup_key)
+        time.sleep(self.config.extra_wait_on_popup)
 
     def export_to_pdf(self) -> None:
         if self.config.export_pdf_button is None:
