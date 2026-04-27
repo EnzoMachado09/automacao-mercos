@@ -7,8 +7,9 @@
   "report_variation_confirm_key": "esc",
   "optional_popup_key": "enter",
   "advance_key": "down",
-  "advance_after_export_delay": 0.5,
-  "ui_delay": 0.25,
-  "export_confirm_delay": 0.7,
+  "advance_after_export_delay": 3.0,
+  "ui_delay": 3.0,
+  "export_confirm_delay": 3.0,
+  "extra_wait_on_popup": 3.0,
   "fallback_customer_name_prefix": "pedido"
-
+}}
