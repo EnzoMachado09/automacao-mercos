@@ -21,6 +21,20 @@ OCR e opcional. Se quiser extrair o nome do cliente automaticamente, instale tam
 
 ## Execucao
 
+Usando o launcher PowerShell:
+
+```powershell
+powershell -File run.ps1 -StartDate 01/04/2026 -EndDate 27/04/2026 -OutputDir "C:\Pedidos\PDF"
+```
+
+Usando o launcher em lote:
+
+```bat
+run.bat 01/04/2026 27/04/2026 "C:\Pedidos\PDF"
+```
+
+Ou, diretamente com o modulo Python:
+
 ```bash
 python -m src.main --start-date 01/04/2026 --end-date 27/04/2026 --output-dir "C:\\Pedidos\\PDF"
 ```
