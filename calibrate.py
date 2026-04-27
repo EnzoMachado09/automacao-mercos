@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 import tkinter as tk
 
-import pyautogui
+try:
+    import pyautogui
+except ModuleNotFoundError:
+    print("Erro: a biblioteca 'pyautogui' nao esta instalada no ambiente ativo.")
+    print("Instale com: .\.venv\\Scripts\\python.exe -m pip install pyautogui")
+    raise SystemExit(1)
 
 
 def main() -> int:
     root = tk.Tk()
     root.title("Calibrador de Coordenadas")
-    root.attributes("topmost", True)
+    # usar '-topmost' com prefixo de hifen para evitar TclError
+    root.attributes("-topmost", True)
     root.resizable(False, False)
 
     coord_var = tk.StringVar(value="Posicione o mouse sobre o ponto desejado")
