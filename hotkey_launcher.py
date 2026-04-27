@@ -25,11 +25,13 @@ class HotKeyLauncher:
     def __init__(self):
         self.process = None
         self.is_running = False
-        self.max_orders = StringVar(value="0")  # 0 = processar todos
         self.root = Tk()
         self.root.title("Automação Mercos - Hotkey Launcher")
         self.root.geometry("600x500")
         self.root.resizable(True, True)
+        
+        # Agora cria StringVar DEPOIS de ter a janela raiz
+        self.max_orders = StringVar(value="0")  # 0 = processar todos
         
         # Tenta colocar a janela sempre no topo
         try:
