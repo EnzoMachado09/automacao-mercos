@@ -140,6 +140,7 @@ class MercosAutomation:
             LOGGER.warning("customer_name_region not configured; asking user for name")
             return self._ask_user_for_name()
 
+        LOGGER.info(f"📸 Capturando imagem da região de nome do cliente...")
         screenshot = pyautogui.screenshot(
             region=(
                 self.config.customer_name_region.left,
@@ -153,19 +154,23 @@ class MercosAutomation:
             # Salva screenshot de debug
             debug_path = self.output_dir / f"debug_ocr_{self._processed + 1:04d}.png"
             
+            LOGGER.info(f"🔍 Executando OCR (Tesseract: {self.config.tesseract_cmd or 'padrão'})")
             result = ocr_image(screenshot, tesseract_cmd=self.config.tesseract_cmd, debug_path=debug_path)
-            LOGGER.info(f"OCR confidence: {result.confidence:.1f}% - Text: {result.text}")
             
-            if result.text and result.confidence and result.confidence > 30:
+            LOGGER.info(f"📊 OCR Result - Confidence: {result.confidence:.1f}% | Text: '{result.text}'")
+            LOGGER.info(f"📁 Debug image saved: {debug_path}")
+            
+            if result.text and result.confidence and result.confidence > 20:
                 extracted = self._sanitize_customer_name(result.text)
-                LOGGER.info(f"✓ OCR extracted (confidence={result.confidence:.1f}%): {extracted}")
+                LOGGER.info(f"✅ OCR SUCCESS (confidence={result.confidence:.1f}%): '{extracted}'")
                 return extracted
             else:
-                LOGGER.warning(f"⚠ OCR confidence too low ({result.confidence:.1f}%): {result.text}")
+                LOGGER.warning(f"⚠️  OCR Confidence too low ({result.confidence:.1f}% < 20%)")
+                LOGGER.warning(f"⚠️  OCR Text: '{result.text}'")
         except Exception as exc:  # pragma: no cover - runtime fallback
-            LOGGER.warning("OCR failed: %s", exc)
+            LOGGER.error(f"❌ OCR Exception: {exc}", exc_info=True)
 
-        LOGGER.warning("OCR extraction failed; asking user for name")
+        LOGGER.warning("💬 OCR failed; asking user for name")
         return self._ask_user_for_name()
 
     def advance_selection_if_possible(self) -> bool | None:

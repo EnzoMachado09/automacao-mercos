@@ -55,23 +55,31 @@ def _preprocess_image(image: Image.Image) -> Image.Image:
 
 def ocr_image(image: Image.Image, tesseract_cmd: str | None = None, debug_path: Path | None = None) -> VisionResult:
     if pytesseract is None:
+        LOGGER.error("❌ pytesseract not installed!")
         raise RuntimeError("pytesseract is not installed")
 
     if tesseract_cmd:
+        LOGGER.info(f"🔧 Setting Tesseract command: {tesseract_cmd}")
         pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    else:
+        LOGGER.info("🔧 Using default Tesseract from PATH")
 
     # Preprocessa a imagem
+    LOGGER.info("🖼️  Preprocessing image (contrast, brightness, sharpness, upscale)")
     processed_image = _preprocess_image(image)
     
     # Salva screenshot de debug se solicitado
     if debug_path:
         debug_path.parent.mkdir(parents=True, exist_ok=True)
         processed_image.save(debug_path)
-        LOGGER.debug(f"Saved OCR debug image to: {debug_path}")
+        LOGGER.info(f"💾 Saved debug image: {debug_path}")
     
     # Tenta OCR em português com dados de confiança
     try:
+        LOGGER.info("📖 Running Tesseract OCR with lang=por...")
         text = pytesseract.image_to_string(processed_image, lang="por")
+        LOGGER.info(f"📝 Raw OCR text: '{text}'")
+        
         data = pytesseract.image_to_data(processed_image, lang="por", output_type="dict")
         
         # Calcula confiança média
@@ -79,11 +87,11 @@ def ocr_image(image: Image.Image, tesseract_cmd: str | None = None, debug_path: 
         confidence = sum(confidences) / len(confidences) if confidences else 0
         
         extracted_text = normalize_text(text)
-        LOGGER.info(f"OCR extracted (confidence={confidence:.1f}%): {extracted_text}")
+        LOGGER.info(f"✅ OCR Success - Text: '{extracted_text}' | Confidence: {confidence:.1f}%")
         
         return VisionResult(text=extracted_text, confidence=confidence)
     except Exception as e:
-        LOGGER.error(f"OCR error: {e}")
+        LOGGER.error(f"❌ Tesseract OCR error: {e}", exc_info=True)
         raise
 
 
