@@ -10,7 +10,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from tkinter import Tk, Label, Button, Frame, Text, Scrollbar
+from tkinter import Tk, Label, Button, Frame, Text, Scrollbar, Entry, StringVar
 from tkinter import font as tkFont
 
 try:
@@ -25,6 +25,7 @@ class HotKeyLauncher:
     def __init__(self):
         self.process = None
         self.is_running = False
+        self.max_orders = StringVar(value="0")  # 0 = processar todos
         self.root = Tk()
         self.root.title("Automação Mercos - Hotkey Launcher")
         self.root.geometry("600x500")
@@ -81,6 +82,40 @@ class HotKeyLauncher:
             fg="#333333"
         )
         info1.pack(anchor="w")
+        
+        # Configuração de max_orders
+        config_frame = Frame(main_frame, bg="#e8f5e9", relief="solid", borderwidth=1)
+        config_frame.pack(fill="x", pady=(0, 10), padx=0)
+        
+        config_label = Label(
+            config_frame,
+            text="⚙️  Configuração",
+            font=tkFont.Font(family="Arial", size=9, weight="bold"),
+            bg="#e8f5e9",
+            fg="#1b5e20"
+        )
+        config_label.pack(anchor="w", padx=10, pady=(5, 0))
+        
+        max_orders_frame = Frame(config_frame, bg="#e8f5e9")
+        max_orders_frame.pack(fill="x", padx=10, pady=5)
+        
+        max_orders_label = Label(
+            max_orders_frame,
+            text="Máximo de pedidos (0=todos):",
+            font=info_font,
+            bg="#e8f5e9",
+            fg="#333333"
+        )
+        max_orders_label.pack(side="left", padx=(0, 10))
+        
+        self.max_orders_entry = Entry(
+            max_orders_frame,
+            textvariable=self.max_orders,
+            font=info_font,
+            width=8,
+            justify="center"
+        )
+        self.max_orders_entry.pack(side="left")
         
         # Área de logs
         log_label = Label(
@@ -185,6 +220,7 @@ class HotKeyLauncher:
             fg="#009900"
         )
         self.toggle_button.config(text="⏹️  PARAR", bg="#ff9800")
+        self.max_orders_entry.config(state="disabled")
         self.root.update()
         
         # Inicia automação em thread
@@ -212,6 +248,17 @@ class HotKeyLauncher:
                 "-m", "src.main",
                 "--output-dir", output_dir
             ]
+            
+            # Adiciona max_orders se especificado
+            try:
+                max_orders_val = int(self.max_orders.get())
+                if max_orders_val > 0:
+                    cmd.extend(["--max-orders", str(max_orders_val)])
+                    self.log(f"⚙️  Máximo de pedidos: {max_orders_val}")
+                else:
+                    self.log(f"⚙️  Processando todos os pedidos visíveis")
+            except ValueError:
+                self.log("⚠️  max_orders inválido, usando 0 (processar todos)")
             
             self.log(f"▶️  Executando: {' '.join(cmd)}")
             
@@ -265,6 +312,7 @@ class HotKeyLauncher:
                 fg="#990000"
             )
             self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
+            self.max_orders_entry.config(state="normal")
             self.root.update()
             self.log("="*50)
     
@@ -301,6 +349,7 @@ class HotKeyLauncher:
                 fg="#990000"
             )
             self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
+            self.max_orders_entry.config(state="normal")
             self.root.update()
             self.log("="*50)
     
@@ -310,6 +359,7 @@ class HotKeyLauncher:
         self.is_running = False
         self.status_label.config(text=f"❌ ERRO", bg="#ffcccc", fg="#990000")
         self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
+        self.max_orders_entry.config(state="normal")
         self.root.update()
     
     def close_app(self):
