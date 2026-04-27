@@ -39,6 +39,23 @@ Ou, diretamente com o modulo Python:
 python -m src.main --start-date 01/04/2026 --end-date 27/04/2026 --output-dir "C:\\Pedidos\\PDF"
 ```
 
+## Calibracao de tela
+
+Para descobrir as posicoes dos cliques e regioes da sua tela, execute:
+
+```powershell
+.\.venv\Scripts\python.exe .\calibrate.py
+```
+
+Uso do calibrador:
+
+- Posicione o mouse sobre o ponto que quer medir.
+- Leia as coordenadas na janela do calibrador.
+- Clique em `Capturar` ou pressione `Enter` para copiar `[x, y]` para a area de transferencia.
+- Clique em `Salvar Screenshot` para gravar uma imagem da tela atual em `screenshots\calibracao_tela.png`.
+
+Depois me envie os pontos da tela real para eu preencher os lugares faltantes no `automation_config.json`.
+
 ## Configuracao
 
 Crie um arquivo chamado `automation_config.json` na raiz do projeto para calibrar coordenadas e regioes da interface.

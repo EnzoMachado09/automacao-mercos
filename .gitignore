@@ -11,3 +11,4 @@ dist/
 *.pyd
 *.log
 automation_config.json
+screenshots/
