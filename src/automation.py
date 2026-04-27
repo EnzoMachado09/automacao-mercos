@@ -79,8 +79,6 @@ class MercosAutomation:
     def open_report_variation(self) -> None:
         self._press("f10")
         self._sleep()
-        self._press(self.config.optional_popup_key)
-        time.sleep(self.config.extra_wait_on_popup)
         for _ in range(self.config.report_variation_down_presses):
             self._press("down")
             self._sleep()
