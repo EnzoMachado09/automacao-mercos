@@ -1,8 +1,8 @@
 {
-  "export_pdf_button": [52, 32],
-  "customer_name_region": [180, 200, 420, 40],
-  "selection_probe_region": [12, 150, 320, 28],
-  "save_dialog_filename_field": [310, 550],
+  "export_pdf_button": [84, 37],
+  "customer_name_region": [480, 290, 390, 40],
+  "save_dialog_filename_field": [540, 730],
+  "save_button": [1170, 800],
   "report_variation_down_presses": 4,
   "report_variation_confirm_key": "esc",
   "optional_popup_key": "enter",
@@ -11,4 +11,4 @@
   "ui_delay": 0.25,
   "export_confirm_delay": 0.7,
   "fallback_customer_name_prefix": "pedido"
-}
+

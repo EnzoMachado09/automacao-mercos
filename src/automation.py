@@ -104,10 +104,21 @@ class MercosAutomation:
                 self.config.save_dialog_filename_field.x,
                 self.config.save_dialog_filename_field.y,
             )
+            time.sleep(self.config.ui_delay)
 
         pyautogui.hotkey("ctrl", "a")
+        time.sleep(self.config.ui_delay)
         pyautogui.write(file_path.stem, interval=0.01)
-        self._press("enter")
+        time.sleep(self.config.ui_delay)
+        
+        if self.config.save_button is not None:
+            pyautogui.click(self.config.save_button.x, self.config.save_button.y)
+            time.sleep(self.config.export_confirm_delay)
+        else:
+            self._press("enter")
+            time.sleep(self.config.ui_delay)
+        
+        self._press("esc")
         time.sleep(self.config.ui_delay)
         return file_path
 

@@ -26,6 +26,7 @@ class AutomationConfig:
     customer_name_region: Region | None = None
     selection_probe_region: Region | None = None
     save_dialog_filename_field: Point | None = None
+    save_button: Point | None = None
     report_variation_down_presses: int = 4
     report_variation_confirm_key: str = "esc"
     optional_popup_key: str = "enter"
@@ -70,6 +71,7 @@ class AutomationConfig:
             "customer_name_region",
             "selection_probe_region",
             "save_dialog_filename_field",
+            "save_button",
             "report_variation_down_presses",
             "report_variation_confirm_key",
             "optional_popup_key",
@@ -92,6 +94,7 @@ class AutomationConfig:
             customer_name_region=parse_region(data.get("customer_name_region")),
             selection_probe_region=parse_region(data.get("selection_probe_region")),
             save_dialog_filename_field=parse_point(data.get("save_dialog_filename_field")),
+            save_button=parse_point(data.get("save_button")),
             report_variation_down_presses=int(data.get("report_variation_down_presses", 4)),
             report_variation_confirm_key=str(data.get("report_variation_confirm_key", "esc")),
             optional_popup_key=str(data.get("optional_popup_key", "enter")),
