@@ -406,10 +406,11 @@ if __name__ == "__main__":
             "Tesseract OCR nao encontrado",
             "Tesseract OCR e necessario para extrair nomes de clientes automaticamente.\n\n"
             "Para instalar:\n"
-            "1. Visite: https://github.com/UB-Mannheim/tesseract/releases\n"
-            "2. Baixe: tesseract-ocr-w64-setup-v*.exe\n"
-            "3. Execute e instale em: C:\\Program Files\\Tesseract-OCR\n"
-            "4. Reinicie a automacao\n\n"
+            "1. Visite: https://github.com/UB-Mannheim/tesseract/wiki\n"
+            "2. Clique em 'Downloads' (lado esquerdo)\n"
+            "3. Baixe: tesseract-ocr-w64-setup-v*.exe\n"
+            "4. Execute e instale em: C:\\Program Files\\Tesseract-OCR\n"
+            "5. Reinicie a automacao\n\n"
             "Enquanto isso, voc pode digitar manualmente os nomes dos clientes.\n\n"
             "Clique OK para continuar..."
         )

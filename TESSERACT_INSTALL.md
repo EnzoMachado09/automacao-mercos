@@ -8,18 +8,25 @@ Na automação, ele é usado para ler o nome do cliente automaticamente da tela.
 **Sem Tesseract:** Você terá que digitar o nome de cada cliente manualmente em um popup.
 **Com Tesseract:** O nome é extraído automaticamente e salvo junto com o PDF.
 
-## Instalação Rápida
+## Instalação Rápida (Windows)
 
-### Opção 1: Via GitHub (Recomendado)
+### Opção 1: UB Mannheim (Recomendado - mais fácil)
 
-1. Acesse: https://github.com/UB-Mannheim/tesseract/releases
-2. Baixe a versão mais recente: `tesseract-ocr-w64-setup-v5.3.0.exe` (ou versão maior)
-3. Execute o instalador
-4. **Importante:** Instale em `C:\Program Files\Tesseract-OCR` (caminho padrão)
-5. Conclua a instalação
-6. Reinicie a automação
+1. Acesse: **https://github.com/UB-Mannheim/tesseract/wiki**
+2. Clique em **"Downloads"** (lado esquerdo)
+3. Procure por: `tesseract-ocr-w64-setup-v*.exe` (versão mais recente para 64-bit)
+4. Execute o instalador
+5. **Importante:** Mantenha o caminho padrão: `C:\Program Files\Tesseract-OCR`
+6. Conclua a instalação
+7. Reinicie a automação
 
-### Opção 2: Via winget (se disponível)
+### Opção 2: Repositório Oficial
+
+1. Acesse: https://github.com/tesseract-ocr/tesseract/releases
+2. Procure por versão de Windows (`.exe` ou `.msi`)
+3. Siga os mesmos passos acima
+
+### Opção 3: Via winget (Menos confiável)
 
 ```powershell
 winget install -e --id=UB.Tesseract
