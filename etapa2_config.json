@@ -1,8 +1,5 @@
 {
-  "etapa2_coordenadas": {
-    "excel_taskbar_left": [355, 970],
-    "excel_taskbar_right": [568, 975],
-    "folder_window_coords": [515, 1060],
-    "comentario": "Coordenadas do mouse em pixels (X, Y). Todos os arquivos são abertos/selecionados manualmente pelo usuário."
-  }
+  "modelo_path": "C:\\Users\\enzop\\OneDrive\\Área de Trabalho\\Planilha Modelo\\Planilha Modelo.xlsx",
+  "pedidos_dir": "C:\\Users\\enzop\\OneDrive\\Área de Trabalho\\PDF PARA EXCEL",
+  "descricao": "Configuração da Etapa 2 - Manipulação direta de arquivos Excel com openpyxl"
 }
