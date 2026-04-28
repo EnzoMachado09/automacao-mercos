@@ -51,15 +51,27 @@ def main():
         return 1
     
     # Validar configuração
-    if "modelo_path" not in config or "pedidos_dir" not in config:
-        LOGGER.error("❌ Configuração incompleta. Necessários: modelo_path, pedidos_dir")
+    if "modelo_path" not in config or "pedidos_input_dir" not in config or "output_dir" not in config:
+        LOGGER.error("❌ Configuração incompleta. Necessários: modelo_path, pedidos_input_dir, output_dir")
         return 1
+
+    # Resolve modelo_path: aceita arquivo .xlsx ou pasta contendo 1+ .xlsx
+    modelo_path = Path(config["modelo_path"])
+    if modelo_path.is_dir():
+        candidatos = sorted(modelo_path.glob("*.xlsx"))
+        if not candidatos:
+            LOGGER.error(f"❌ Nenhum .xlsx encontrado na pasta de modelo: {modelo_path}")
+            return 1
+        if len(candidatos) > 1:
+            LOGGER.warning(f"⚠️ Mais de um modelo encontrado. Usando: {candidatos[0].name}")
+        modelo_path = candidatos[0]
     
     # Criar objetos Path
     try:
         paths = ExcelPaths(
-            modelo_path=Path(config["modelo_path"]),
-            pedidos_dir=Path(config["pedidos_dir"])
+            modelo_path=modelo_path,
+            pedidos_input_dir=Path(config["pedidos_input_dir"]),
+            output_dir=Path(config["output_dir"]),
         )
     except (FileNotFoundError, NotADirectoryError) as e:
         LOGGER.error(f"❌ {e}")

@@ -25,7 +25,8 @@ LOGGER = logging.getLogger(__name__)
 class ExcelPaths:
     """Caminhos para automação direta de arquivos Excel"""
     modelo_path: Path  # Caminho do Excel modelo (template)
-    pedidos_dir: Path  # Diretório com arquivos de pedidos .xlsx
+    pedidos_input_dir: Path  # Diretório com arquivos de pedidos .xlsx (entrada)
+    output_dir: Path  # Diretório de saída para arquivos preenchidos
 
 
 class ExcelAutomation:
@@ -39,18 +40,21 @@ class ExcelAutomation:
     
     def __init__(self, paths: ExcelPaths):
         self.modelo_path = Path(paths.modelo_path)
-        self.pedidos_dir = Path(paths.pedidos_dir)
+        self.pedidos_input_dir = Path(paths.pedidos_input_dir)
+        self.output_dir = Path(paths.output_dir)
         self.pedido_count = 0
         
         # Validar caminhos
         if not self.modelo_path.exists():
             raise FileNotFoundError(f"❌ Modelo não encontrado: {self.modelo_path}")
-        if not self.pedidos_dir.is_dir():
-            raise NotADirectoryError(f"❌ Diretório de pedidos não encontrado: {self.pedidos_dir}")
+        if not self.pedidos_input_dir.is_dir():
+            raise NotADirectoryError(f"❌ Diretório de pedidos não encontrado: {self.pedidos_input_dir}")
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         
         LOGGER.info(f"✅ Automação Etapa 2 inicializada (openpyxl)")
         LOGGER.info(f"   Modelo: {self.modelo_path}")
-        LOGGER.info(f"   Pedidos dir: {self.pedidos_dir}")
+        LOGGER.info(f"   Entrada (pedidos): {self.pedidos_input_dir}")
+        LOGGER.info(f"   Saída: {self.output_dir}")
     
     def run(self) -> None:
         """Processa todos os arquivos .xlsx na pasta de pedidos"""
@@ -60,12 +64,12 @@ class ExcelAutomation:
         
         # Listar arquivos .xlsx de entrada (ignora os já gerados com sufixo " M.xlsx")
         pedidos = sorted(
-            p for p in self.pedidos_dir.glob("*.xlsx")
+            p for p in self.pedidos_input_dir.glob("*.xlsx")
             if not p.stem.endswith(" M")
         )
         
         if not pedidos:
-            LOGGER.warning(f"⚠️  Nenhum arquivo .xlsx encontrado em {self.pedidos_dir}")
+            LOGGER.warning(f"⚠️  Nenhum arquivo .xlsx encontrado em {self.pedidos_input_dir}")
             return
         
         LOGGER.info(f"📂 {len(pedidos)} arquivo(s) de pedido encontrado(s)")
@@ -135,13 +139,12 @@ class ExcelAutomation:
         
         # Preencher modelo
         LOGGER.info(f"   [3] Preenchendo modelo...")
-        self._preencher_modelo(todos_produtos, todas_quantidades)
+        nome_saida = pedido_path.stem + " M.xlsx"
+        caminho_saida = self.output_dir / nome_saida
+        self._preencher_modelo(todos_produtos, todas_quantidades, caminho_saida)
         
         # Salvar com sufixo ' M'
         LOGGER.info(f"   [4] Salvando resultado...")
-        nome_saida = pedido_path.stem + " M.xlsx"
-        caminho_saida = self.pedidos_dir / nome_saida
-        
         LOGGER.info(f"      → {caminho_saida}")
         LOGGER.info(f"   ✅ Pedido processado com sucesso")
     
@@ -207,7 +210,7 @@ class ExcelAutomation:
         
         return valores
     
-    def _preencher_modelo(self, produtos: list[str], quantidades: list[str]) -> None:
+    def _preencher_modelo(self, produtos: list[str], quantidades: list[str], caminho_saida: Path) -> None:
         """Preenche modelo com produtos e quantidades
         
         Args:
@@ -230,8 +233,8 @@ class ExcelAutomation:
             for idx, qtd in enumerate(quantidades, start=2):
                 modelo_sheet.cell(row=idx, column=2).value = qtd
             
-            # Salvar modelo preenchido
-            modelo_wb.save(self.modelo_path)
+            # Salvar cópia preenchida no destino de saída
+            modelo_wb.save(caminho_saida)
             modelo_wb.close()
             
             LOGGER.info(f"      ✅ Modelo preenchido com {len(produtos)} produtos")
