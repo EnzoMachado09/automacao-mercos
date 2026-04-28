@@ -1,0 +1,10 @@
+{
+  "etapa2_config": {
+    "pedidos_folder": "SERÁ PREENCHIDO PELO USUÁRIO",
+    "modelo_file": "SERÁ PREENCHIDO PELO USUÁRIO",
+    "excel_taskbar_left": [0, 0],
+    "excel_taskbar_right": [0, 0],
+    "folder_window_coords": [0, 0],
+    "comentario": "Coordenadas em formato [X, Y] do mouse na tela em pixels"
+  }
+}
