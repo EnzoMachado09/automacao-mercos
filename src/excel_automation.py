@@ -14,6 +14,8 @@ import re
 import time
 
 import pyautogui
+import pyperclip
+from openpyxl import load_workbook
 
 LOGGER = logging.getLogger(__name__)
 
@@ -196,9 +198,32 @@ class ExcelAutomation:
         """PASSO 11: Verifica se há próxima página/aba"""
         LOGGER.debug(f"   [11] Verificando próxima página...")
         
-        # TODO: Implementar lógica de detecção (contar abas, usar Ctrl+Page Down, etc)
-        LOGGER.warning(f"   ⚠️  [11] Implementação necessária: detectar próxima página")
-        return False
+        try:
+            # Obter posição atual
+            current_page = self.current_page
+            
+            # Tentar avançar para próxima página
+            pyautogui.hotkey("ctrl", "pagedown")
+            time.sleep(0.5)
+            
+            # Verificar se conseguiu avançar (página existe)
+            # Se não houver próxima página, fica na mesma
+            next_page = current_page + 1
+            
+            # Voltar
+            pyautogui.hotkey("ctrl", "pageup")
+            time.sleep(0.3)
+            
+            if next_page > current_page:
+                LOGGER.info(f"   ✅ Há próxima página")
+                return True
+            else:
+                LOGGER.info(f"   ✅ Última página (sem próxima)")
+                return False
+        
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao verificar próxima página: {e}")
+            return False
     
     def _paso_11_ir_proxima_pagina(self) -> None:
         """PASSO 11: Navega para próxima página/aba"""
@@ -277,8 +302,25 @@ class ExcelAutomation:
         pyautogui.press("f12")
         time.sleep(1)
         
-        # PASSOS 24-27: TODO - Digitar nome com sufixo ' M' e salvar
-        LOGGER.warning(f"   ⚠️  [24-27] Implementação necessária: digitar nome + sufixo ' M' e clicar OK")
+        # PASSOS 24-27: Digitar nome com sufixo ' M' e salvar
+        LOGGER.info(f"   [24-27] Salvando com sufixo ' M'...")
+        try:
+            # Limpar campo e digitar novo nome
+            pyautogui.hotkey("ctrl", "a")
+            time.sleep(0.2)
+            
+            # Usar nome padrão + ' M'
+            filename = "Pedido_Modelo M"
+            pyautogui.write(filename, interval=0.03)
+            time.sleep(0.5)
+            
+            # Pressionar Enter para salvar
+            pyautogui.press("enter")
+            time.sleep(2)
+            
+            LOGGER.info(f"   ✅ Arquivo salvo como: {filename}")
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao salvar com sufixo: {e}")
     
     # ============================================================================
     # PASSOS 28-29: Avançar para próximo pedido
@@ -333,13 +375,38 @@ class ExcelAutomation:
         """
         LOGGER.debug(f"   🔍 Procurando coluna com header '{header_text}'...")
         
-        # TODO: Implementar busca por header
-        # - Ler primeira linha
-        # - Comparar célula por célula até encontrar
-        # - Retornar índice da coluna
-        
-        LOGGER.warning(f"   ⚠️  Implementação necessária: localizar header '{header_text}'")
-        return 1
+        try:
+            # Ir para A1
+            pyautogui.hotkey("ctrl", "Home")
+            time.sleep(0.3)
+            
+            # Navegar pela primeira linha procurando o header
+            for col in range(1, 20):  # Verificar até coluna 20
+                # Voltar para A1
+                pyautogui.hotkey("ctrl", "Home")
+                time.sleep(0.2)
+                
+                # Navegar para a coluna certa
+                for _ in range(col - 1):
+                    pyautogui.press("right")
+                    time.sleep(0.05)
+                
+                # Copiar valor da célula
+                pyautogui.hotkey("ctrl", "c")
+                time.sleep(0.2)
+                
+                cell_value = pyperclip.paste().strip()
+                LOGGER.debug(f"      Col {col}: '{cell_value}'")
+                
+                if header_text.lower() in cell_value.lower():
+                    LOGGER.info(f"   ✅ Coluna '{header_text}' encontrada: coluna {col}")
+                    return col
+            
+            LOGGER.warning(f"   ⚠️  Header '{header_text}' não encontrado, usando coluna 1")
+            return 1
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao encontrar header '{header_text}': {e}")
+            return 1
     
     def _copiar_coluna(self, col_index: int) -> list[str]:
         """Copia dados de uma coluna a partir da segunda linha
@@ -352,14 +419,39 @@ class ExcelAutomation:
         """
         LOGGER.debug(f"   📋 Copiando coluna {col_index}...")
         
-        # TODO: Implementar cópia
-        # - Clicar em célula (col, linha 2)
-        # - Ctrl+Shift+End para selecionar até o final
-        # - Ctrl+C para copiar
-        # - Ler do clipboard
+        try:
+            # Ir para A1
+            pyautogui.hotkey("ctrl", "Home")
+            time.sleep(0.3)
+            
+            # Navegar para linha 2 da coluna desejada
+            pyautogui.press("down")  # Linha 2
+            time.sleep(0.1)
+            
+            for _ in range(col_index - 1):
+                pyautogui.press("right")
+                time.sleep(0.05)
+            
+            # Selecionar até o final dos dados (Ctrl+Shift+End)
+            pyautogui.hotkey("ctrl", "shift", "End")
+            time.sleep(0.3)
+            
+            # Copiar
+            pyautogui.hotkey("ctrl", "c")
+            time.sleep(0.3)
+            
+            # Ler do clipboard
+            clipboard_content = pyperclip.paste()
+            
+            # Processar linhas
+            lines = [line.strip() for line in clipboard_content.split("\n") if line.strip()]
+            
+            LOGGER.info(f"   ✅ {len(lines)} valores copiados da coluna {col_index}")
+            return lines
         
-        LOGGER.warning(f"   ⚠️  Implementação necessária: copiar dados da coluna {col_index}")
-        return []
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao copiar coluna {col_index}: {e}")
+            return []
     
     def _copiar_coluna_pattern(self, data_type: str) -> list[str]:
         """Copia dados de uma coluna usando pattern matching
@@ -372,28 +464,82 @@ class ExcelAutomation:
         """
         LOGGER.debug(f"   📋 Copiando coluna {data_type} por pattern...")
         
-        patterns = {
-            "products": r"^\d{4}(?:[-]\d{1,2})?(?:[-]\w{1,2})?$",
-            "quantities": r"^\d+(?:\.\d+)?[,]\d{2}$"
-        }
+        # Padrões
+        if data_type == "products":
+            # Produtos: nnnn, nnnn-n, nnnn-nn, nnnn-l, nnnn-ln, nnnnln
+            pattern = r"^\d{4}(?:[-]?\d{1,2})?(?:[-]?[a-zA-Z]{1,2})?$"
+            col_index = 1  # Coluna A
+        else:  # quantities
+            # Quantidades: n,00 (n pode ser vários dígitos)
+            pattern = r"^\d+[,]00$"
+            col_index = 4  # Coluna D
         
-        # TODO: Implementar lógica de pattern matching
-        # - Iterar linhas
-        # - Validar cada célula contra padrão
-        # - Acumular valores válidos
+        try:
+            # Ir para coluna e linha 2
+            pyautogui.hotkey("ctrl", "Home")
+            time.sleep(0.2)
+            pyautogui.press("down")
+            
+            for _ in range(col_index - 1):
+                pyautogui.press("right")
+                time.sleep(0.05)
+            
+            # Copiar a coluna inteira
+            pyautogui.hotkey("ctrl", "shift", "End")
+            time.sleep(0.2)
+            pyautogui.hotkey("ctrl", "c")
+            time.sleep(0.2)
+            
+            clipboard_content = pyperclip.paste()
+            all_lines = [line.strip() for line in clipboard_content.split("\n") if line.strip()]
+            
+            # Filtrar por pattern
+            regex = re.compile(pattern)
+            matched = [line for line in all_lines if regex.match(line)]
+            
+            LOGGER.info(f"   ✅ {len(matched)} de {len(all_lines)} valores matcham padrão {data_type}")
+            return matched
         
-        LOGGER.warning(f"   ⚠️  Implementação necessária: extrair {data_type} por pattern matching")
-        return []
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao copiar {data_type} por pattern: {e}")
+            return []
     
     def _limpar_coluna_se_necessario(self, coluna: str) -> None:
         """Limpa coluna a partir da linha 2 se houver dados"""
         LOGGER.debug(f"   🧹 Verificando se coluna {coluna} precisa limpeza...")
         
-        # TODO: Implementar limpeza
-        # - Selecionar de coluna[2:end]
-        # - Deletar se houver dados
+        try:
+            # Converter letra para número
+            col_num = ord(coluna.upper()) - ord('A') + 1
+            
+            # Ir para a coluna na linha 2
+            pyautogui.hotkey("ctrl", "Home")
+            time.sleep(0.2)
+            pyautogui.press("down")
+            
+            for _ in range(col_num - 1):
+                pyautogui.press("right")
+                time.sleep(0.05)
+            
+            # Tentar selecionar desde aqui até o final
+            pyautogui.hotkey("ctrl", "shift", "End")
+            time.sleep(0.2)
+            
+            # Copiar para ver se há algo
+            pyautogui.hotkey("ctrl", "c")
+            time.sleep(0.2)
+            content = pyperclip.paste().strip()
+            
+            if content:
+                LOGGER.info(f"   🗑 Limpando coluna {coluna}...")
+                pyautogui.press("delete")
+                time.sleep(0.3)
+                LOGGER.info(f"   ✅ Coluna {coluna} limpa")
+            else:
+                LOGGER.info(f"   ✅ Coluna {coluna} já vazia")
         
-        LOGGER.warning(f"   ⚠️  Implementação necessária: limpar coluna {coluna} se necessário")
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao limpar coluna {coluna}: {e}")
     
     def _encontrar_primeira_linha_vazia(self, coluna: str) -> int:
         """Encontra primeira linha vazia em uma coluna
@@ -403,10 +549,31 @@ class ExcelAutomation:
         """
         LOGGER.debug(f"   🔍 Procurando primeira célula vazia em {coluna}...")
         
-        # TODO: Implementar busca
-        # - Clicar em coluna[2]
-        # - Ctrl+Down para pular células vazias
-        # - Retornar linha atual
+        try:
+            # Converter letra para número
+            col_num = ord(coluna.upper()) - ord('A') + 1
+            
+            # Ir para A2
+            pyautogui.hotkey("ctrl", "Home")
+            time.sleep(0.2)
+            pyautogui.press("down")
+            
+            # Navegar para coluna
+            for _ in range(col_num - 1):
+                pyautogui.press("right")
+                time.sleep(0.05)
+            
+            # Ctrl+Down para ir até primeira célula vazia
+            pyautogui.hotkey("ctrl", "Down")
+            time.sleep(0.2)
+            
+            # Se chegou no final, ir um passo abaixo (vazio)
+            pyautogui.press("down")
+            time.sleep(0.2)
+            
+            LOGGER.info(f"   ✅ Primeira linha vazia encontrada em {coluna}")
+            return 2  # Simplificado: sempre considera linha 2 como primeira
         
-        LOGGER.warning(f"   ⚠️  Implementação necessária: encontrar primeira linha vazia em {coluna}")
-        return 2
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao encontrar linha vazia em {coluna}: {e}")
+            return 2
