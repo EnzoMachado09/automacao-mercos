@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Hotkey Launcher para Automação Mercos
-Tecla F6: iniciar/parar automação
+Tecla F6: iniciar automação Etapa 1 (PDF export)
+Tecla F7: iniciar automação Etapa 2 (Excel extraction)
 Tecla ESC: fechar a aplicação
 """
 
@@ -10,7 +11,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from tkinter import Tk, Label, Button, Frame, Text, Scrollbar, Entry, StringVar
+from tkinter import Tk, Label, Button, Frame, Text, Scrollbar, Entry, StringVar, Radiobutton
 from tkinter import font as tkFont
 
 try:
@@ -27,11 +28,12 @@ class HotKeyLauncher:
         self.is_running = False
         self.root = Tk()
         self.root.title("Automação Mercos - Hotkey Launcher")
-        self.root.geometry("600x500")
+        self.root.geometry("700x600")
         self.root.resizable(True, True)
         
-        # Agora cria StringVar DEPOIS de ter a janela raiz
+        # Variáveis
         self.max_orders = StringVar(value="1")  # Valor padrão: 1 pedido
+        self.etapa_selecionada = StringVar(value="etapa1")  # Padrão: Etapa 1
         
         # Tenta colocar a janela sempre no topo
         try:
@@ -78,12 +80,53 @@ class HotKeyLauncher:
         
         info1 = Label(
             info_frame,
-            text="🟢 F6: Iniciar/Parar  |  🔴 ESC: Fechar",
+            text="🟢 F6: Etapa 1 (PDF)  |  🟡 F7: Etapa 2 (Excel)  |  🔴 ESC: Fechar",
             font=info_font,
             bg="#f0f0f0",
             fg="#333333"
         )
         info1.pack(anchor="w")
+        
+        # ============================================================================
+        # SELEÇÃO DE ETAPA
+        # ============================================================================
+        
+        etapa_frame = Frame(main_frame, bg="#fff3e0", relief="solid", borderwidth=1)
+        etapa_frame.pack(fill="x", pady=(0, 10), padx=0)
+        
+        etapa_label = Label(
+            etapa_frame,
+            text="📌 Selecione a Etapa",
+            font=tkFont.Font(family="Arial", size=10, weight="bold"),
+            bg="#fff3e0",
+            fg="#e65100"
+        )
+        etapa_label.pack(anchor="w", padx=10, pady=(5, 0))
+        
+        etapa_radio_frame = Frame(etapa_frame, bg="#fff3e0")
+        etapa_radio_frame.pack(fill="x", padx=10, pady=5)
+        
+        rb1 = Radiobutton(
+            etapa_radio_frame,
+            text="Etapa 1: Exportar pedidos (PDF → Modelo)",
+            variable=self.etapa_selecionada,
+            value="etapa1",
+            bg="#fff3e0",
+            fg="#333333",
+            font=info_font
+        )
+        rb1.pack(anchor="w")
+        
+        rb2 = Radiobutton(
+            etapa_radio_frame,
+            text="Etapa 2: Extrair dados Excel (Pedidos → Modelo)",
+            variable=self.etapa_selecionada,
+            value="etapa2",
+            bg="#fff3e0",
+            fg="#333333",
+            font=info_font
+        )
+        rb2.pack(anchor="w")
         
         # Configuração de max_orders
         config_frame = Frame(main_frame, bg="#e8f5e9", relief="solid", borderwidth=1)
@@ -91,7 +134,7 @@ class HotKeyLauncher:
         
         config_label = Label(
             config_frame,
-            text="⚙️  Configuração",
+            text="⚙️  Configuração (Etapa 1 apenas)",
             font=tkFont.Font(family="Arial", size=9, weight="bold"),
             bg="#e8f5e9",
             fg="#1b5e20"
@@ -162,28 +205,42 @@ class HotKeyLauncher:
         button_frame = Frame(main_frame, bg="#f0f0f0")
         button_frame.pack(fill="x")
         
-        self.toggle_button = Button(
+        self.button_etapa1 = Button(
             button_frame,
-            text="▶️  INICIAR",
-            command=self.toggle_automation,
-            font=tkFont.Font(family="Arial", size=11, weight="bold"),
-            bg="#4CAF50",
+            text="▶️  INICIAR ETAPA 1",
+            command=lambda: self.start_automation_etapa("etapa1"),
+            font=tkFont.Font(family="Arial", size=10, weight="bold"),
+            bg="#2196F3",
             fg="white",
-            padx=20,
+            padx=15,
             pady=8,
             relief="raised",
             borderwidth=2
         )
-        self.toggle_button.pack(side="left", expand=True, padx=5)
+        self.button_etapa1.pack(side="left", expand=True, padx=5)
+        
+        self.button_etapa2 = Button(
+            button_frame,
+            text="▶️  INICIAR ETAPA 2",
+            command=lambda: self.start_automation_etapa("etapa2"),
+            font=tkFont.Font(family="Arial", size=10, weight="bold"),
+            bg="#FF9800",
+            fg="white",
+            padx=15,
+            pady=8,
+            relief="raised",
+            borderwidth=2
+        )
+        self.button_etapa2.pack(side="left", expand=True, padx=5)
         
         close_button = Button(
             button_frame,
             text="❌ FECHAR",
             command=self.close_app,
-            font=tkFont.Font(family="Arial", size=11, weight="bold"),
+            font=tkFont.Font(family="Arial", size=10, weight="bold"),
             bg="#f44336",
             fg="white",
-            padx=20,
+            padx=15,
             pady=8,
             relief="raised",
             borderwidth=2
@@ -191,11 +248,13 @@ class HotKeyLauncher:
         close_button.pack(side="right", expand=True, padx=5)
         
         # Registra hotkeys
-        keyboard.add_hotkey("f6", self.toggle_automation)
+        keyboard.add_hotkey("f6", lambda: self.start_automation_etapa("etapa1"))
+        keyboard.add_hotkey("f7", lambda: self.start_automation_etapa("etapa2"))
         keyboard.add_hotkey("esc", self.close_app)
         
         self.log("✅ Hotkey Launcher iniciado")
-        self.log("   F6: Iniciar/Parar automação")
+        self.log("   F6: Iniciar Etapa 1 (PDF export)")
+        self.log("   F7: Iniciar Etapa 2 (Excel extraction)")
         self.log("   ESC: Fechar aplicação")
     
     def log(self, message):
@@ -208,14 +267,23 @@ class HotKeyLauncher:
         print(message)  # Também imprime no console
     
     def toggle_automation(self):
-        """Inicia ou para a automação"""
+        """Inicia ou para a automação (DEPRECATED - use start_automation_etapa)"""
         if not self.is_running:
-            self.start_automation()
+            self.start_automation_etapa(self.etapa_selecionada.get())
         else:
             self.stop_automation()
     
-    def start_automation(self):
-        """Inicia a automação em thread separada"""
+    def start_automation_etapa(self, etapa: str):
+        """Inicia automação de uma etapa específica"""
+        if etapa == "etapa1":
+            self.start_automation_etapa1()
+        elif etapa == "etapa2":
+            self.start_automation_etapa2()
+        else:
+            self.log(f"❌ Etapa desconhecida: {etapa}")
+    
+    def start_automation_etapa1(self):
+        """Inicia a automação Etapa 1 (PDF export)"""
         if self.is_running:
             self.log("⚠️  Automação já em execução")
             return
@@ -237,26 +305,53 @@ class HotKeyLauncher:
         # Atualiza UI
         self.is_running = True
         self.status_label.config(
-            text="🟢 EXECUTANDO",
+            text="🟢 EXECUTANDO ETAPA 1",
             bg="#ccffcc",
             fg="#009900"
         )
-        self.toggle_button.config(text="⏹️  PARAR", bg="#ff9800")
+        self.button_etapa1.config(text="⏹️  PARAR", bg="#ff9800")
+        self.button_etapa2.config(state="disabled")
         self.max_orders_entry.config(state="disabled")
         self.root.update()
         
         # Inicia automação em thread
         thread = threading.Thread(
-            target=self._run_automation,
+            target=self._run_automation_etapa1,
             args=(str(output_dir),),
             daemon=True
         )
         thread.start()
-        self.log(f"▶️  Iniciando thread de automação...")
+        self.log(f"▶️  Iniciando ETAPA 1 (PDF export)...")
         self.log(f"   Diretório de saída: {output_dir}")
     
-    def _run_automation(self, output_dir):
-        """Executa a automação (rodando em thread)"""
+    def start_automation_etapa2(self):
+        """Inicia a automação Etapa 2 (Excel extraction)"""
+        if self.is_running:
+            self.log("⚠️  Automação já em execução")
+            return
+        
+        # Atualiza UI
+        self.is_running = True
+        self.status_label.config(
+            text="🟡 EXECUTANDO ETAPA 2",
+            bg="#ffffcc",
+            fg="#ff8800"
+        )
+        self.button_etapa2.config(text="⏹️  PARAR", bg="#4CAF50")
+        self.button_etapa1.config(state="disabled")
+        self.max_orders_entry.config(state="disabled")
+        self.root.update()
+        
+        # Inicia automação em thread
+        thread = threading.Thread(
+            target=self._run_automation_etapa2,
+            daemon=True
+        )
+        thread.start()
+        self.log(f"▶️  Iniciando ETAPA 2 (Excel extraction)...")
+    
+    def _run_automation_etapa1(self, output_dir):
+        """Executa a automação Etapa 1 (rodando em thread)"""
         try:
             python_exe = Path(__file__).parent / ".venv" / "Scripts" / "python.exe"
             
@@ -316,14 +411,14 @@ class HotKeyLauncher:
                         self.log(f"   {line}")
             
             if self.process.returncode == 0:
-                self.log("✅ Automação concluída com sucesso!")
+                self.log("✅ Etapa 1 concluída com sucesso!")
             else:
-                self.log(f"❌ Automação finalizou com código: {self.process.returncode}")
+                self.log(f"❌ Etapa 1 finalizou com código: {self.process.returncode}")
                 if remaining_stderr:
                     self.log(f"Erro:\n{remaining_stderr}")
         
         except Exception as e:
-            self.log(f"❌ Erro ao executar automação: {e}")
+            self.log(f"❌ Erro ao executar Etapa 1: {e}")
             self.show_error(f"Erro: {str(e)}")
         
         finally:
@@ -335,7 +430,80 @@ class HotKeyLauncher:
                 bg="#ffcccc",
                 fg="#990000"
             )
-            self.toggle_button.config(text="▶️  INICIAR", bg="#4CAF50")
+            self.button_etapa1.config(text="▶️  INICIAR ETAPA 1", bg="#2196F3", state="normal")
+            self.button_etapa2.config(state="normal")
+            self.max_orders_entry.config(state="normal")
+            self.root.update()
+            self.log("="*50)
+    
+    def _run_automation_etapa2(self):
+        """Executa a automação Etapa 2 (rodando em thread)"""
+        try:
+            python_exe = Path(__file__).parent / ".venv" / "Scripts" / "python.exe"
+            
+            if not python_exe.exists():
+                self.log(f"❌ Python não encontrado em: {python_exe}")
+                self.show_error("Python virtual env não encontrado")
+                return
+            
+            cmd = [
+                str(python_exe),
+                "main_etapa2.py"
+            ]
+            
+            self.log(f"▶️  Executando: {' '.join(cmd)}")
+            
+            # Usa Popen para que seja não-bloqueante
+            self.process = subprocess.Popen(
+                cmd,
+                cwd=Path(__file__).parent,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+            
+            self.log(f"✅ Processo iniciado (PID: {self.process.pid})")
+            
+            # Lê a saída em tempo real
+            while True:
+                if self.process.poll() is not None:
+                    # Processo terminou
+                    break
+                
+                line = self.process.stdout.readline()
+                if line:
+                    self.log(f"   {line.rstrip()}")
+            
+            # Lê resíduos
+            remaining_stdout, remaining_stderr = self.process.communicate()
+            if remaining_stdout:
+                for line in remaining_stdout.split('\n'):
+                    if line.strip():
+                        self.log(f"   {line}")
+            
+            if self.process.returncode == 0:
+                self.log("✅ Etapa 2 concluída com sucesso!")
+            else:
+                self.log(f"❌ Etapa 2 finalizou com código: {self.process.returncode}")
+                if remaining_stderr:
+                    self.log(f"Erro:\n{remaining_stderr}")
+        
+        except Exception as e:
+            self.log(f"❌ Erro ao executar Etapa 2: {e}")
+            self.show_error(f"Erro: {str(e)}")
+        
+        finally:
+            # Reseta UI
+            self.is_running = False
+            self.process = None
+            self.status_label.config(
+                text="⏹️  PARADA",
+                bg="#ffcccc",
+                fg="#990000"
+            )
+            self.button_etapa2.config(text="▶️  INICIAR ETAPA 2", bg="#FF9800", state="normal")
+            self.button_etapa1.config(state="normal")
             self.max_orders_entry.config(state="normal")
             self.root.update()
             self.log("="*50)
