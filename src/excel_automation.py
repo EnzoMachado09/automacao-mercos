@@ -229,11 +229,13 @@ class ExcelAutomation:
         """PASSO 11: Navega para próxima página/aba"""
         LOGGER.info(f"   [11] Avançando para próxima página...")
         
-        # TODO: Pressionar Ctrl+PageDown ou clicar em aba
-        # pyautogui.hotkey("ctrl", "pagedown")
-        # time.sleep(1)
-        
-        LOGGER.warning(f"   ⚠️  [11] Implementação necessária: ir para próxima página")
+        try:
+            pyautogui.hotkey("ctrl", "pagedown")
+            time.sleep(1)
+            self.current_page += 1
+            LOGGER.info(f"   ✅ Página {self.current_page} selecionada")
+        except Exception as e:
+            LOGGER.error(f"   ❌ Erro ao avançar para próxima página: {e}")
     
     # ============================================================================
     # PASSOS 12-20: Páginas 2+ (com pattern matching)
