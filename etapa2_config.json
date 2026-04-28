@@ -1,10 +1,8 @@
 {
-  "etapa2_config": {
-    "pedidos_folder": "SERÁ PREENCHIDO PELO USUÁRIO",
-    "modelo_file": "SERÁ PREENCHIDO PELO USUÁRIO",
-    "excel_taskbar_left": [0, 0],
-    "excel_taskbar_right": [0, 0],
-    "folder_window_coords": [0, 0],
-    "comentario": "Coordenadas em formato [X, Y] do mouse na tela em pixels"
+  "etapa2_coordenadas": {
+    "excel_taskbar_left": [355, 970],
+    "excel_taskbar_right": [568, 975],
+    "folder_window_coords": [515, 1060],
+    "comentario": "Coordenadas do mouse em pixels (X, Y). Todos os arquivos são abertos/selecionados manualmente pelo usuário."
   }
 }

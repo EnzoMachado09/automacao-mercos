@@ -1,6 +1,8 @@
 """
 Automação da Etapa 2: Anotar Informações dos Pedidos
 Extrai produtos e quantidades de excels de pedidos e preenche planilha modelo
+
+Fluxo: 30 passos automatizados com navegação entre abas Excel
 """
 
 from __future__ import annotations
@@ -12,8 +14,6 @@ import re
 import time
 
 import pyautogui
-import openpyxl
-from openpyxl.utils import get_column_letter
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,350 +21,392 @@ LOGGER = logging.getLogger(__name__)
 @dataclass
 class ExcelCoordinates:
     """Coordenadas necessárias para automação de Excel"""
-    excel_taskbar_left: tuple[int, int] | None = None  # Ícone Excel modelo na taskbar
-    excel_taskbar_right: tuple[int, int] | None = None  # Ícone Excel pedido na taskbar
-    folder_window_coords: tuple[int, int] | None = None  # Janela da pasta de pedidos
-    
-    # Será preenchido pelo usuário
+    excel_taskbar_left: tuple[int, int]  # Ícone Excel modelo na taskbar
+    excel_taskbar_right: tuple[int, int]  # Ícone Excel pedido na taskbar
+    folder_window_coords: tuple[int, int]  # Janela da pasta de pedidos (ponto clicável)
 
 
 class ExcelAutomation:
-    """Automação de preenchimento de Excel modelo com dados de pedidos"""
+    """Automação de preenchimento de Excel modelo com dados de pedidos - 30 PASSOS
     
-    def __init__(self, pedidos_folder: Path, modelo_path: Path, coords: ExcelCoordinates):
-        self.pedidos_folder = Path(pedidos_folder)
-        self.modelo_path = Path(modelo_path)
+    Pré-requisito:
+    - Excel modelo aberto (esquerda taskbar)
+    - Pasta de pedidos aberta
+    - Primeiro arquivo selecionado na pasta
+    """
+    
+    def __init__(self, coords: ExcelCoordinates):
         self.coords = coords
-        self.current_file: Path | None = None
-        self.current_sheet = None
-        self.collected_items: list[str] = []  # Produtos
-        self.collected_quantities: list[str] = []  # Quantidades
+        self.collected_items: list[str] = []  # Produtos acumulados
+        self.collected_quantities: list[str] = []  # Quantidades acumuladas
+        self.current_page = 1
+        self.pedido_count = 0
         
-        LOGGER.info(f"🗂️  Pasta de pedidos: {self.pedidos_folder}")
-        LOGGER.info(f"📊 Planilha modelo: {self.modelo_path}")
+        LOGGER.info(f"✅ Automação Etapa 2 inicializada")
+        LOGGER.info(f"   Excel Modelo (taskbar): {coords.excel_taskbar_left}")
+        LOGGER.info(f"   Excel Pedido (taskbar): {coords.excel_taskbar_right}")
+        LOGGER.info(f"   Pasta de Pedidos: {coords.folder_window_coords}")
     
     def run(self) -> None:
-        """Executa automação completa da Etapa 2"""
-        LOGGER.info("=" * 60)
-        LOGGER.info("🚀 Iniciando Etapa 2: Anotar Informações dos Pedidos")
-        LOGGER.info("=" * 60)
+        """Executa automação completa da Etapa 2 - 30 PASSOS
         
-        # Listar arquivos Excel da pasta
-        excel_files = sorted(self.pedidos_folder.glob("*.xlsx"))
-        if not excel_files:
-            LOGGER.error(f"❌ Nenhum arquivo Excel encontrado em {self.pedidos_folder}")
-            return
+        Pré-requisitos (feitos manualmente):
+        1. Excel modelo aberto (esquerda)
+        2. Pasta de pedidos aberta
+        3. Primeiro arquivo JÁ SELECIONADO na pasta
+        """
+        LOGGER.info("=" * 70)
+        LOGGER.info("🚀 ETAPA 2: Anotar Informações dos Pedidos - 30 PASSOS")
+        LOGGER.info("=" * 70)
         
-        LOGGER.info(f"📁 Encontrados {len(excel_files)} arquivos de pedidos")
-        for idx, file in enumerate(excel_files, 1):
-            LOGGER.info(f"   {idx}. {file.name}")
-        
-        # Processar cada pedido
-        for idx, pedido_file in enumerate(excel_files, 1):
-            try:
-                LOGGER.info(f"\n{'='*60}")
-                LOGGER.info(f"📄 Processando pedido {idx}/{len(excel_files)}: {pedido_file.name}")
-                LOGGER.info(f"{'='*60}")
-                
-                self.process_pedido(pedido_file)
-                
-                # Salvar modelo após cada pedido
-                self.save_modelo()
-                
-                # Avançar para próximo (exceto no último)
-                if idx < len(excel_files):
-                    self.advance_to_next_file()
-                    time.sleep(1)
-            
-            except Exception as e:
-                LOGGER.error(f"❌ Erro ao processar {pedido_file.name}: {e}", exc_info=True)
-                continue
-        
-        LOGGER.info(f"\n{'='*60}")
-        LOGGER.info("✅ Etapa 2 concluída!")
-        LOGGER.info(f"{'='*60}")
-    
-    def process_pedido(self, pedido_file: Path) -> None:
-        """Processa um arquivo de pedido completo (todas as páginas)"""
-        self.current_file = pedido_file
-        self.collected_items = []
-        self.collected_quantities = []
-        
-        # Etapa 1: Abrir primeiro pedido em Excel
-        LOGGER.info(f"📂 Abrindo: {pedido_file.name}")
-        pyautogui.press("enter")
-        time.sleep(10)  # Delay para Excel abrir
-        
-        # Processar cada página do pedido
-        page = 1
+        pedido_num = 1
         while True:
             try:
-                LOGGER.info(f"\n📄 Página {page} do pedido")
+                LOGGER.info(f"\n{'='*70}")
+                LOGGER.info(f"📄 PEDIDO #{pedido_num}")
+                LOGGER.info(f"{'='*70}")
                 
-                if page == 1:
-                    # Página 1: Usar headers "Produto" e "Qtd."
-                    self._process_page_1()
-                else:
-                    # Páginas 2+: Pattern matching
-                    self._process_page_n(page)
+                # Reset para novo pedido
+                self.collected_items = []
+                self.collected_quantities = []
+                self.current_page = 1
                 
-                # Verificar se tem mais página
-                if not self._has_next_page():
-                    LOGGER.info("✅ Fim do pedido (última página)")
+                # PASSOS 1-21: Processar todas as páginas do pedido
+                self._passos_1_a_21()
+                
+                # PASSOS 22-27: Salvar modelo
+                self._passos_22_a_27()
+                
+                # PASSOS 28-29: Avançar
+                if not self._passos_28_a_29():
+                    LOGGER.info("✅ Último pedido processado!")
                     break
                 
-                self._go_to_next_page()
-                page += 1
+                pedido_num += 1
+                time.sleep(2)
             
             except Exception as e:
-                LOGGER.error(f"❌ Erro ao processar página {page}: {e}", exc_info=True)
+                LOGGER.error(f"❌ Erro ao processar pedido: {e}", exc_info=True)
                 break
         
-        LOGGER.info(f"📊 Pedido completo:")
-        LOGGER.info(f"   Itens coletados: {len(self.collected_items)}")
-        LOGGER.info(f"   Quantidades coletadas: {len(self.collected_quantities)}")
+        LOGGER.info(f"\n{'='*70}")
+        LOGGER.info("✅ ETAPA 2 CONCLUÍDA COM SUCESSO!")
+        LOGGER.info(f"{'='*70}")
     
-    def _process_page_1(self) -> None:
-        """Processa página 1 com headers 'Produto' e 'Qtd.'"""
-        LOGGER.info("   Página 1: Usando headers 'Produto' e 'Qtd.'")
+    # ============================================================================
+    # PASSOS 1-2: Abrir primeiro pedido
+    # ============================================================================
+    
+    def _passos_1_a_21(self) -> None:
+        """PASSOS 1-21: Extrair dados de todas as páginas do pedido"""
         
-        # Etapa 2: Identificar coluna de produtos
-        products_col = self._find_column_by_header("Produto")
-        LOGGER.info(f"   Coluna 'Produto' encontrada: {products_col}")
+        # PASSOS 1-2: Abrir pedido
+        if self.current_page == 1:
+            self._paso_1_2_abrir_pedido()
         
-        # Etapa 3: Copiar produtos
-        items = self._extract_column_data(products_col)
-        LOGGER.info(f"   ✅ Copiados {len(items)} produtos")
+        # Processar cada página
+        while True:
+            LOGGER.info(f"\n   📖 Processando página {self.current_page}")
+            
+            if self.current_page == 1:
+                self._passos_3_a_10_pagina_1()
+            else:
+                self._passos_12_a_20_pagina_n()
+            
+            # PASSO 11: Verificar próxima página (passo 21 é repetição do 11-20)
+            if not self._paso_11_tem_proxima_pagina():
+                LOGGER.info(f"   ✅ Fim do pedido (última página)")
+                break
+            
+            self._paso_11_ir_proxima_pagina()
+            self.current_page += 1
+    
+    def _paso_1_2_abrir_pedido(self) -> None:
+        """PASSOS 1-2: Abrir primeiro pedido em Excel (ENTER + 10s delay)"""
+        LOGGER.info(f"\n[PASSOS 1-2] Abrindo primeiro pedido...")
+        pyautogui.press("enter")
+        LOGGER.info(f"   ⏳ Aguardando Excel abrir (10 segundos)...")
+        time.sleep(10)
+        LOGGER.info(f"   ✅ Pedido aberto")
+    
+    # ============================================================================
+    # PASSOS 3-10: Página 1 (com headers "Produto" e "Qtd.")
+    # ============================================================================
+    
+    def _passos_3_a_10_pagina_1(self) -> None:
+        """PASSOS 3-10: Processar página 1 com headers"""
+        LOGGER.info(f"   [P1] Usando headers 'Produto' e 'Qtd.'")
+        
+        # PASSO 2-3: Identificar e copiar produtos
+        LOGGER.info(f"   [3] Identificando coluna 'Produto'...")
+        col_produtos = self._encontrar_coluna_header("Produto")
+        
+        LOGGER.info(f"   [3] Copiando produtos...")
+        items = self._copiar_coluna(col_produtos)
         self.collected_items.extend(items)
+        LOGGER.info(f"   ✅ {len(items)} produtos copiados")
         
-        # Etapa 7: Identificar coluna de quantidades
-        qty_col = self._find_column_by_header("Qtd.")
-        LOGGER.info(f"   Coluna 'Qtd.' encontrada: {qty_col}")
+        # PASSOS 4-5: Colar no modelo
+        self._passos_4_5_colar_modelo("products", "A")
         
-        # Etapa 7: Copiar quantidades
-        quantities = self._extract_column_data(qty_col)
-        LOGGER.info(f"   ✅ Copiadas {len(quantities)} quantidades")
+        # PASSO 7: Identificar e copiar quantidades
+        LOGGER.info(f"   [7] Identificando coluna 'Qtd.'...")
+        col_qtd = self._encontrar_coluna_header("Qtd.")
+        
+        LOGGER.info(f"   [7] Copiando quantidades...")
+        quantities = self._copiar_coluna(col_qtd)
         self.collected_quantities.extend(quantities)
-    
-    def _process_page_n(self, page: int) -> None:
-        """Processa página 2+ usando pattern matching"""
-        LOGGER.info(f"   Página {page}: Usando pattern matching (produtos em A, quantidades em D)")
+        LOGGER.info(f"   ✅ {len(quantities)} quantidades copiadas")
         
-        # Etapa 13: Copiar coluna inteira de itens (coluna A)
-        items = self._extract_column_data_pattern("products")
-        LOGGER.info(f"   ✅ Copiados {len(items)} produtos (padrão)")
+        # PASSOS 8-9: Colar quantidades
+        self._passos_8_9_colar_modelo("quantities", "B")
+    
+    def _passos_4_5_colar_modelo(self, data_type: str, coluna: str) -> None:
+        """PASSOS 4-5: Colar dados no modelo (coluna A para produtos)"""
+        LOGGER.info(f"   [4-5] Colando {data_type} na coluna {coluna} do modelo...")
+        self._switch_to_modelo()
+        
+        if coluna == "A":
+            self._limpar_coluna_se_necessario(coluna)
+        
+        first_empty = self._encontrar_primeira_linha_vazia(coluna)
+        LOGGER.info(f"   Colando a partir de {coluna}{first_empty}")
+        
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(2)
+        LOGGER.info(f"   ✅ Colado com sucesso")
+    
+    def _passos_8_9_colar_modelo(self, data_type: str, coluna: str) -> None:
+        """PASSOS 8-9: Colar quantidades no modelo (coluna B)"""
+        LOGGER.info(f"   [8-9] Colando {data_type} na coluna {coluna} do modelo...")
+        self._switch_to_modelo()
+        
+        first_empty = self._encontrar_primeira_linha_vazia(coluna)
+        LOGGER.info(f"   Colando a partir de {coluna}{first_empty}")
+        
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(2)
+        LOGGER.info(f"   ✅ Colado com sucesso")
+    
+    # ============================================================================
+    # PASSO 11: Verificar próxima página
+    # ============================================================================
+    
+    def _paso_11_tem_proxima_pagina(self) -> bool:
+        """PASSO 11: Verifica se há próxima página/aba"""
+        LOGGER.debug(f"   [11] Verificando próxima página...")
+        
+        # TODO: Implementar lógica de detecção (contar abas, usar Ctrl+Page Down, etc)
+        LOGGER.warning(f"   ⚠️  [11] Implementação necessária: detectar próxima página")
+        return False
+    
+    def _paso_11_ir_proxima_pagina(self) -> None:
+        """PASSO 11: Navega para próxima página/aba"""
+        LOGGER.info(f"   [11] Avançando para próxima página...")
+        
+        # TODO: Pressionar Ctrl+PageDown ou clicar em aba
+        # pyautogui.hotkey("ctrl", "pagedown")
+        # time.sleep(1)
+        
+        LOGGER.warning(f"   ⚠️  [11] Implementação necessária: ir para próxima página")
+    
+    # ============================================================================
+    # PASSOS 12-20: Páginas 2+ (com pattern matching)
+    # ============================================================================
+    
+    def _passos_12_a_20_pagina_n(self) -> None:
+        """PASSOS 12-20: Processar página 2+ com pattern matching"""
+        LOGGER.info(f"   [12-20] Usando pattern matching (produtos em A, quantidades em D)")
+        
+        # PASSOS 13-15: Copiar e colar produtos
+        LOGGER.info(f"   [13] Copiando coluna de produtos (pattern)...")
+        items = self._copiar_coluna_pattern("products")
         self.collected_items.extend(items)
+        LOGGER.info(f"   ✅ {len(items)} produtos copiados")
         
-        # Etapa 17: Copiar coluna de quantidades (detectar via padrão)
-        quantities = self._extract_column_data_pattern("quantities")
-        LOGGER.info(f"   ✅ Copiadas {len(quantities)} quantidades (padrão)")
+        self._passos_14_15_colar_modelo_pagina_n("products", "A")
+        
+        # PASSOS 17-19: Copiar e colar quantidades
+        LOGGER.info(f"   [17] Copiando coluna de quantidades (pattern)...")
+        quantities = self._copiar_coluna_pattern("quantities")
         self.collected_quantities.extend(quantities)
+        LOGGER.info(f"   ✅ {len(quantities)} quantidades copiadas")
+        
+        self._passos_18_19_colar_modelo_pagina_n("quantities", "B")
     
-    def _find_column_by_header(self, header_text: str) -> int:
-        """Encontra a coluna pela célula header (ex: 'Produto', 'Qtd.')
-        Retorna índice da coluna (1-based)"""
-        LOGGER.debug(f"   🔍 Procurando coluna com header: '{header_text}'")
+    def _passos_14_15_colar_modelo_pagina_n(self, data_type: str, coluna: str) -> None:
+        """PASSOS 14-15: Colar na primeira célula vazia da coluna A"""
+        LOGGER.info(f"   [14-15] Colando {data_type} a partir de primeira célula vazia em {coluna}...")
+        self._switch_to_modelo()
         
-        # TODO: Usar pyautogui para ler valores da tela
-        # Por enquanto, placeholder que será preenchido
+        first_empty = self._encontrar_primeira_linha_vazia(coluna)
+        LOGGER.info(f"   Colando a partir de {coluna}{first_empty}")
         
-        LOGGER.warning(f"   ⚠️  Função _find_column_by_header precisa de implementação com OCR/pattern matching")
-        return 1  # Placeholder
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(2)
+        LOGGER.info(f"   ✅ Colado com sucesso")
     
-    def _extract_column_data(self, col_index: int, skip_rows: int = 1) -> list[str]:
-        """Extrai dados de uma coluna começando após o header
+    def _passos_18_19_colar_modelo_pagina_n(self, data_type: str, coluna: str) -> None:
+        """PASSOS 18-19: Colar na primeira célula vazia da coluna B"""
+        LOGGER.info(f"   [18-19] Colando {data_type} a partir de primeira célula vazia em {coluna}...")
+        self._switch_to_modelo()
         
-        Args:
-            col_index: Índice da coluna (1-based)
-            skip_rows: Linhas a pular após header (padrão: 1)
+        first_empty = self._encontrar_primeira_linha_vazia(coluna)
+        LOGGER.info(f"   Colando a partir de {coluna}{first_empty}")
+        
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(2)
+        LOGGER.info(f"   ✅ Colado com sucesso")
+    
+    # ============================================================================
+    # PASSOS 22-27: Salvar modelo
+    # ============================================================================
+    
+    def _passos_22_a_27(self) -> None:
+        """PASSOS 22-27: Fechar pedido e salvar modelo com sufixo ' M'"""
+        LOGGER.info(f"\n[PASSOS 22-27] Salvando modelo...")
+        
+        # PASSO 22: Fechar Excel do pedido
+        LOGGER.info(f"   [22] Fechando Excel do pedido...")
+        pyautogui.hotkey("alt", "f4")
+        time.sleep(2)
+        LOGGER.info(f"   ✅ Fechado (modelo ativado)")
+        
+        # PASSO 23: F12 para salvar
+        LOGGER.info(f"   [23] Pressionando F12...")
+        pyautogui.press("f12")
+        time.sleep(1)
+        
+        # PASSOS 24-27: TODO - Digitar nome com sufixo ' M' e salvar
+        LOGGER.warning(f"   ⚠️  [24-27] Implementação necessária: digitar nome + sufixo ' M' e clicar OK")
+    
+    # ============================================================================
+    # PASSOS 28-29: Avançar para próximo pedido
+    # ============================================================================
+    
+    def _passos_28_a_29(self) -> bool:
+        """PASSOS 28-29: Clicar na pasta e avançar para próximo arquivo
         
         Returns:
-            Lista de valores não-vazios
+            True se avançou, False se era o último
         """
-        LOGGER.debug(f"   📋 Extraindo dados da coluna {col_index}")
+        LOGGER.info(f"\n[PASSOS 28-29] Avançando para próximo pedido...")
         
-        # TODO: Copiar dados para clipboard usando pyautogui
-        # pyautogui.hotkey('ctrl', 'c')
-        # return read_from_clipboard()
+        # PASSO 28: Clicar na janela da pasta
+        LOGGER.info(f"   [28] Clicando na pasta...")
+        pyautogui.click(self.coords.folder_window_coords[0], self.coords.folder_window_coords[1])
+        time.sleep(0.5)
         
-        LOGGER.warning(f"   ⚠️  Função _extract_column_data precisa de implementação")
-        return []  # Placeholder
+        # PASSO 29: Seta para baixo
+        LOGGER.info(f"   [29] Pressionando seta para baixo...")
+        pyautogui.press("down")
+        time.sleep(1)
+        LOGGER.info(f"   ✅ Próximo arquivo selecionado")
+        
+        # TODO: Detectar se é realmente o último arquivo
+        return True
     
-    def _extract_column_data_pattern(self, data_type: str) -> list[str]:
-        """Extrai dados usando pattern matching
+    # ============================================================================
+    # FUNÇÕES AUXILIARES
+    # ============================================================================
+    
+    def _switch_to_modelo(self) -> None:
+        """Troca para a aba do Excel modelo (esquerda taskbar)"""
+        LOGGER.debug(f"   🔄 Trocando para Excel modelo...")
+        pyautogui.click(self.coords.excel_taskbar_left[0], self.coords.excel_taskbar_left[1])
+        time.sleep(1)
+    
+    def _switch_to_pedido(self) -> None:
+        """Troca para a aba do Excel pedido (direita taskbar)"""
+        LOGGER.debug(f"   🔄 Trocando para Excel pedido...")
+        pyautogui.click(self.coords.excel_taskbar_right[0], self.coords.excel_taskbar_right[1])
+        time.sleep(1)
+    
+    def _encontrar_coluna_header(self, header_text: str) -> int:
+        """Encontra número da coluna pelo texto do header
         
         Args:
-            data_type: "products" (padrão: nnnn ou nnnn-n etc) ou "quantities" (padrão: n,00)
+            header_text: Texto a procurar (ex: "Produto", "Qtd.")
+        
+        Returns:
+            Número da coluna (1-based)
+        """
+        LOGGER.debug(f"   🔍 Procurando coluna com header '{header_text}'...")
+        
+        # TODO: Implementar busca por header
+        # - Ler primeira linha
+        # - Comparar célula por célula até encontrar
+        # - Retornar índice da coluna
+        
+        LOGGER.warning(f"   ⚠️  Implementação necessária: localizar header '{header_text}'")
+        return 1
+    
+    def _copiar_coluna(self, col_index: int) -> list[str]:
+        """Copia dados de uma coluna a partir da segunda linha
+        
+        Args:
+            col_index: Número da coluna (1-based)
+        
+        Returns:
+            Lista de valores
+        """
+        LOGGER.debug(f"   📋 Copiando coluna {col_index}...")
+        
+        # TODO: Implementar cópia
+        # - Clicar em célula (col, linha 2)
+        # - Ctrl+Shift+End para selecionar até o final
+        # - Ctrl+C para copiar
+        # - Ler do clipboard
+        
+        LOGGER.warning(f"   ⚠️  Implementação necessária: copiar dados da coluna {col_index}")
+        return []
+    
+    def _copiar_coluna_pattern(self, data_type: str) -> list[str]:
+        """Copia dados de uma coluna usando pattern matching
+        
+        Args:
+            data_type: "products" (formato: nnnn ou nnnn-n) ou "quantities" (formato: n,00)
         
         Returns:
             Lista de valores que matcham o padrão
         """
-        LOGGER.debug(f"   🔎 Extraindo {data_type} por pattern matching")
+        LOGGER.debug(f"   📋 Copiando coluna {data_type} por pattern...")
         
-        if data_type == "products":
-            # Padrão: 4-6 caracteres, números e letras, com formatos como "nnnn", "nnnn-n", "nnnn-ln"
-            pattern = r"^\d{4}(?:[-]\d{1,2})?(?:[-]\w{1,2})?$"
-        elif data_type == "quantities":
-            # Padrão: números com ",00" no final (ex: "10,00", "1000,00")
-            pattern = r"^\d+(?:\.\d+)?[,]\d{2}$"
-        else:
-            LOGGER.error(f"❌ data_type desconhecido: {data_type}")
-            return []
+        patterns = {
+            "products": r"^\d{4}(?:[-]\d{1,2})?(?:[-]\w{1,2})?$",
+            "quantities": r"^\d+(?:\.\d+)?[,]\d{2}$"
+        }
         
-        # TODO: Implementar extração com pattern matching
-        # - Ler célula por célula
-        # - Validar contra padrão
+        # TODO: Implementar lógica de pattern matching
+        # - Iterar linhas
+        # - Validar cada célula contra padrão
         # - Acumular valores válidos
         
-        LOGGER.warning(f"   ⚠️  Função _extract_column_data_pattern precisa de implementação")
-        return []  # Placeholder
+        LOGGER.warning(f"   ⚠️  Implementação necessária: extrair {data_type} por pattern matching")
+        return []
     
-    def _has_next_page(self) -> bool:
-        """Verifica se há mais páginas (abas) no Excel"""
-        LOGGER.debug(f"   ❓ Verificando se há próxima página...")
-        
-        # TODO: Contar abas/sheets do arquivo atual
-        # ou usar Page Down para ver se há mais conteúdo
-        
-        LOGGER.warning(f"   ⚠️  Função _has_next_page precisa de implementação")
-        return False  # Placeholder
-    
-    def _go_to_next_page(self) -> None:
-        """Navega para a próxima página/aba do Excel"""
-        LOGGER.debug(f"   ➡️  Avançando para próxima página...")
-        
-        # TODO: Pressionar Ctrl+Page Down ou clicar na aba seguinte
-        # pyautogui.hotkey('ctrl', 'pagedown')
-        
-        LOGGER.warning(f"   ⚠️  Função _go_to_next_page precisa de implementação")
-    
-    def switch_to_modelo(self) -> None:
-        """Muda para a aba do Excel modelo (esquerda na taskbar)"""
-        LOGGER.debug(f"   🔄 Trocando para Excel modelo...")
-        
-        if not self.coords.excel_taskbar_left:
-            LOGGER.error("❌ Coordenada excel_taskbar_left não configurada")
-            return
-        
-        pyautogui.click(self.coords.excel_taskbar_left[0], self.coords.excel_taskbar_left[1])
-        time.sleep(1)
-    
-    def switch_to_pedido(self) -> None:
-        """Muda para a aba do Excel pedido (direita na taskbar)"""
-        LOGGER.debug(f"   🔄 Trocando para Excel pedido...")
-        
-        if not self.coords.excel_taskbar_right:
-            LOGGER.error("❌ Coordenada excel_taskbar_right não configurada")
-            return
-        
-        pyautogui.click(self.coords.excel_taskbar_right[0], self.coords.excel_taskbar_right[1])
-        time.sleep(1)
-    
-    def paste_to_modelo(self, data_type: str, column: str) -> None:
-        """Cola dados no Excel modelo
-        
-        Args:
-            data_type: "products" ou "quantities"
-            column: "A" ou "B"
-        """
-        LOGGER.info(f"   📌 Colando {data_type} na coluna {column}...")
-        
-        self.switch_to_modelo()
-        
-        # Etapa 5/9: Verificar se coluna está vazia, se não limpar
-        self._clear_column_if_needed(column)
-        
-        # Encontrar primeira célula vazia
-        first_empty_row = self._find_first_empty_row(column)
-        LOGGER.info(f"   Primeira linha vazia em {column}: {first_empty_row}")
-        
-        # Colar dados
-        pyautogui.hotkey("ctrl", "v")
-        time.sleep(2)
-        
-        LOGGER.info(f"   ✅ Dados colados em {column}")
-    
-    def _clear_column_if_needed(self, column: str) -> None:
+    def _limpar_coluna_se_necessario(self, coluna: str) -> None:
         """Limpa coluna a partir da linha 2 se houver dados"""
-        LOGGER.debug(f"   🧹 Verificando se coluna {column} precisa limpeza...")
+        LOGGER.debug(f"   🧹 Verificando se coluna {coluna} precisa limpeza...")
         
-        # TODO: Selecionar a partir de linha 2 e deletar se houver dados
-        # Usar Ctrl+Shift+End para selecionar até o final
+        # TODO: Implementar limpeza
+        # - Selecionar de coluna[2:end]
+        # - Deletar se houver dados
         
-        LOGGER.warning(f"   ⚠️  Função _clear_column_if_needed precisa de implementação")
+        LOGGER.warning(f"   ⚠️  Implementação necessária: limpar coluna {coluna} se necessário")
     
-    def _find_first_empty_row(self, column: str) -> int:
-        """Encontra a primeira linha vazia em uma coluna
+    def _encontrar_primeira_linha_vazia(self, coluna: str) -> int:
+        """Encontra primeira linha vazia em uma coluna
         
         Returns:
             Número da linha (1-based)
         """
-        LOGGER.debug(f"   🔍 Procurando primeira célula vazia em coluna {column}...")
+        LOGGER.debug(f"   🔍 Procurando primeira célula vazia em {coluna}...")
         
-        # TODO: Usar Ctrl+Down para navegar até célula vazia
+        # TODO: Implementar busca
+        # - Clicar em coluna[2]
+        # - Ctrl+Down para pular células vazias
+        # - Retornar linha atual
         
-        LOGGER.warning(f"   ⚠️  Função _find_first_empty_row precisa de implementação")
-        return 2  # Placeholder
-    
-    def save_modelo(self) -> None:
-        """Salva o Excel modelo com sufixo ' M'"""
-        LOGGER.info(f"💾 Salvando Excel modelo...")
-        
-        # Etapa 23: Pressionar F12 para salvar
-        pyautogui.press("f12")
-        time.sleep(1)
-        
-        # Etapa 25-26: Nome do arquivo + sufixo " M"
-        if self.current_file:
-            filename = self.current_file.stem  # Remove .xlsx
-            new_name = f"{filename} M"
-            
-            LOGGER.info(f"   Nome do arquivo: '{new_name}'")
-            
-            # TODO: Digitar novo nome na caixa de salvamento
-            # pyautogui.write(new_name, interval=0.05)
-            
-            LOGGER.warning(f"   ⚠️  Função save_modelo precisa de implementação (digitar nome e clicar OK)")
-        
-        time.sleep(2)
-    
-    def advance_to_next_file(self) -> None:
-        """Avança para o próximo arquivo na pasta (Etapa 29)"""
-        LOGGER.info(f"   ⬇️  Avançando para próximo pedido...")
-        
-        if not self.coords.folder_window_coords:
-            LOGGER.error("❌ Coordenada folder_window_coords não configurada")
-            return
-        
-        # Clicar na janela da pasta
-        pyautogui.click(self.coords.folder_window_coords[0], self.coords.folder_window_coords[1])
-        time.sleep(0.5)
-        
-        # Pressionar seta para baixo
-        pyautogui.press("down")
-        time.sleep(1)
-        
-        LOGGER.info(f"   ✅ Próximo arquivo selecionado")
-
-
-def main():
-    """Função de teste/exemplo"""
-    import sys
-    from .config import default_config_path
-    
-    # Placeholders para teste
-    pedidos_folder = Path("E:/Automações/Automação Mercos/pedidos_excel")
-    modelo_path = Path("E:/Automações/Automação Mercos/modelo.xlsx")
-    
-    coords = ExcelCoordinates(
-        excel_taskbar_left=(0, 0),  # TODO: Preencher com coordenadas reais
-        excel_taskbar_right=(0, 0),  # TODO: Preencher com coordenadas reais
-        folder_window_coords=(0, 0),  # TODO: Preencher com coordenadas reais
-    )
-    
-    automation = ExcelAutomation(pedidos_folder, modelo_path, coords)
-    automation.run()
-
-
-if __name__ == "__main__":
-    main()
+        LOGGER.warning(f"   ⚠️  Implementação necessária: encontrar primeira linha vazia em {coluna}")
+        return 2
