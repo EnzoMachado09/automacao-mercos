@@ -166,9 +166,9 @@ class ExcelAutomation:
     # FUNÇÕES AUXILIARES - MANIPULAÇÃO DE EXCEL
     # ============================================================================
 
-    # Formatos aceitos: nnnn | nnnn-nn | nnnn-ln | llnnnn | nnnnln | nnnn-n
+    # Formatos aceitos: nnnn | nnnn-nn | nnnn-ln | nnnn-l | llnnnn | nnnnln | nnnn-n
     _CODIGO_RE = re.compile(
-        r'^[A-Za-z]{0,2}\d{3,6}([A-Za-z]\d?)?(-\d{1,2}[A-Za-z]?)?$'
+        r'^[A-Za-z]{0,2}\d{3,6}([A-Za-z]\d?)?(-(\d{1,2}[A-Za-z]?|[A-Za-z]\d*))?$'
     )
 
     @staticmethod
@@ -278,7 +278,7 @@ class ExcelAutomation:
             cod_str = str(val_cod).strip()
 
             if not self._is_codigo(cod_str):
-                break  # fim da tabela de produtos
+                continue  # linha sem código válido (descrição continuada, totais, etc.)
 
             val_qtd = sheet.cell(row=row, column=col_qtd).value
             if val_qtd is not None:
