@@ -114,39 +114,18 @@ class ExcelAutomation:
             
             sheet = pedido_wb[sheet_name]
             
-            # Encontrar a linha onde fica o header de produtos/itens
-            row_header = self._encontrar_linha_header(
-                sheet, ["Produto", "Item", "Cod", "Código"]
-            )
+            # Localizar linha de header e colunas de código e qtd
+            resultado = self._encontrar_linha_e_colunas(sheet)
 
-            if row_header is None:
-                LOGGER.warning(f"      ⚠️  Header de produtos não encontrado em '{sheet_name}', pulando sheet")
+            if resultado is None:
+                LOGGER.warning(f"      ⚠️  Tabela de produtos não encontrada em '{sheet_name}', pulando sheet")
                 continue
 
+            row_header, col_produtos, col_qtd = resultado
             data_start_row = row_header + 1
 
-            # Descobrir qual coluna tem mais códigos válidos e qual tem mais quantidades
-            col_produtos = self._encontrar_coluna_dados(
-                sheet, data_start_row, self._is_codigo, "códigos"
-            )
-            col_qtd = self._encontrar_coluna_dados(
-                sheet, data_start_row, self._is_quantidade, "quantidades"
-            )
-
-            if col_produtos is None:
-                LOGGER.warning(f"      ⚠️  Nenhuma coluna de códigos encontrada em '{sheet_name}', pulando sheet")
-                continue
-
-            if col_qtd is None:
-                LOGGER.warning(f"      ⚠️  Nenhuma coluna de quantidades encontrada em '{sheet_name}', pulando sheet")
-                continue
-
-            if col_produtos == col_qtd:
-                LOGGER.warning(f"      ⚠️  Colunas de código e quantidade apontam para a mesma coluna em '{sheet_name}', pulando sheet")
-                continue
-
-            # Extrair pares código+quantidade (para na primeira linha sem código válido)
-            produtos, quantidades = self._extrair_par_codigo_qtd(
+            # Extrair pares código+quantidade
+            produtos, quantidades = self._extrair_produtos(
                 sheet, data_start_row, col_produtos, col_qtd
             )
 
@@ -172,89 +151,72 @@ class ExcelAutomation:
     # FUNÇÕES AUXILIARES - MANIPULAÇÃO DE EXCEL
     # ============================================================================
 
+    # Formatos aceitos: nnnn | nnnn-nn | nnnn-ln | llnnnn | nnnnln | nnnn-n
     _CODIGO_RE = re.compile(
-        r'^([A-Za-z]{0,2}\d{3,6}([A-Za-z]\d?)?(-\d{1,2}[A-Za-z]?)?|\d{4}-[A-Za-z]\d)$'
+        r'^[A-Za-z]{0,2}\d{3,6}([A-Za-z]\d?)?(-\d{1,2}[A-Za-z]?)?$'
     )
-    _QTD_RE = re.compile(r'^\d+([,\.]\d{1,2})?$')
 
     @staticmethod
     def _is_codigo(valor: str) -> bool:
-        """Retorna True se o valor parece um código de produto válido.
-
-        Formatos aceitos (n=dígito, l=letra):
-          nnnn | nnnn-nn | nnnn-ln | llnnnn | nnnnln | nnnn-n
-        """
         return bool(ExcelAutomation._CODIGO_RE.match(valor.strip()))
 
-    @staticmethod
-    def _is_quantidade(valor: str) -> bool:
-        """Retorna True se o valor parece uma quantidade (inteiro ou decimal ,00 / .00)."""
-        v = valor.strip().replace(',', '.')
-        try:
-            float(v)
-            return True
-        except ValueError:
-            return False
+    def _encontrar_linha_e_colunas(
+        self, sheet: Worksheet
+    ) -> Optional[tuple[int, int, int]]:
+        """Localiza a linha de header da tabela de produtos e as colunas de código e qtd.
 
-    def _encontrar_linha_header(self, sheet: Worksheet, headers: list[str]) -> Optional[int]:
-        """Varre todas as linhas procurando uma célula que bata com qualquer header.
-
-        Returns:
-            Número da linha (1-based) ou None.
+        Estratégia: varre as linhas procurando uma que tenha simultaneamente
+        um header de produto (col A geralmente) e um header de quantidade.
+        Retorna (row_header, col_codigo, col_qtd) ou None.
         """
+        HEADERS_PRODUTO = {"produto", "item", "cod", "código", "cód"}
+        HEADERS_QTD = {"qtd", "qtd.", "quantidade", "qtd..", "quant"}
+
         for row in range(1, sheet.max_row + 1):
+            col_cod_encontrada = None
+            col_qtd_encontrada = None
+
             for col in range(1, sheet.max_column + 1):
-                cell = sheet.cell(row=row, column=col)
-                if cell.value is None:
+                val = sheet.cell(row=row, column=col).value
+                if val is None:
                     continue
-                cell_value = str(cell.value).strip().lower()
-                for header in headers:
-                    if header.lower() in cell_value or cell_value in header.lower():
-                        LOGGER.debug(f"      🔍 Header '{header}' na linha {row}, coluna {col}")
-                        return row
+                texto = str(val).strip().lower()
+
+                if col_cod_encontrada is None:
+                    for h in HEADERS_PRODUTO:
+                        if texto == h or texto.startswith(h):
+                            col_cod_encontrada = col
+                            break
+
+                if col_qtd_encontrada is None:
+                    for h in HEADERS_QTD:
+                        if texto == h or texto.startswith(h):
+                            col_qtd_encontrada = col
+                            break
+
+            if col_cod_encontrada and col_qtd_encontrada:
+                LOGGER.info(
+                    f"      🔍 Header na linha {row}: "
+                    f"código=col {col_cod_encontrada}, qtd=col {col_qtd_encontrada}"
+                )
+                return (row, col_cod_encontrada, col_qtd_encontrada)
+
         return None
 
-    def _encontrar_coluna_dados(self, sheet: Worksheet, start_row: int,
-                                validator, label: str) -> Optional[int]:
-        """Percorre as colunas da planilha e retorna a que tem mais valores válidos
-        segundo a função validator — evita pegar colunas espúrias com dados parecidos.
+    def _extrair_produtos(
+        self, sheet: Worksheet, data_start_row: int, col_cod: int, col_qtd: int
+    ) -> tuple[list[str], list[str]]:
+        """Extrai pares (código, quantidade) a partir de data_start_row.
 
-        Args:
-            start_row: primeira linha de dados (logo após o header)
-            validator: função (str) -> bool
-            label: nome para log
-        """
-        melhor_col = None
-        melhor_count = 0
-
-        for col in range(1, sheet.max_column + 1):
-            count = 0
-            for row in range(start_row, sheet.max_row + 1):
-                val = sheet.cell(row=row, column=col).value
-                if val is not None and validator(str(val).strip()):
-                    count += 1
-            if count > melhor_count:
-                melhor_count = count
-                melhor_col = col
-
-        if melhor_col is not None:
-            LOGGER.debug(f"      🔍 Melhor coluna para {label}: {melhor_col} ({melhor_count} valores)")
-        else:
-            LOGGER.warning(f"      ⚠️  Nenhuma coluna encontrada para {label}")
-
-        return melhor_col
-
-    def _extrair_par_codigo_qtd(self, sheet: Worksheet, start_row: int,
-                                col_cod: int, col_qtd: int) -> tuple[list[str], list[str]]:
-        """Extrai pares (código, quantidade) linha a linha, parando quando
-        a linha não tem código válido (fim da tabela de produtos).
+        Para quando encontra uma linha cujo valor na coluna de código não
+        corresponde a um código de produto válido (indica fim da tabela).
+        Linhas com código vazio são ignoradas.
         """
         codigos: list[str] = []
         qtds: list[str] = []
 
-        for row in range(start_row, sheet.max_row + 1):
+        for row in range(data_start_row, sheet.max_row + 1):
             val_cod = sheet.cell(row=row, column=col_cod).value
-            val_qtd = sheet.cell(row=row, column=col_qtd).value
 
             if val_cod is None:
                 continue
@@ -262,10 +224,19 @@ class ExcelAutomation:
             cod_str = str(val_cod).strip()
 
             if not self._is_codigo(cod_str):
-                # Encontrou linha sem código válido — fim da tabela
-                break
+                break  # fim da tabela de produtos
 
-            qtd_str = str(val_qtd).strip() if val_qtd is not None else ""
+            val_qtd = sheet.cell(row=row, column=col_qtd).value
+            if val_qtd is not None:
+                try:
+                    # Converte 16,00 → 16 (inteiro)
+                    qtd_num = float(str(val_qtd).replace(',', '.'))
+                    qtd_str = str(int(qtd_num)) if qtd_num == int(qtd_num) else str(qtd_num)
+                except (ValueError, TypeError):
+                    qtd_str = str(val_qtd).strip()
+            else:
+                qtd_str = ""
+
             codigos.append(cod_str)
             qtds.append(qtd_str)
 
