@@ -58,8 +58,11 @@ class ExcelAutomation:
         LOGGER.info("🚀 INICIANDO AUTOMAÇÃO ETAPA 2 - EXTRAÇÃO DE DADOS")
         LOGGER.info("=" * 70)
         
-        # Listar arquivos .xlsx
-        pedidos = sorted(self.pedidos_dir.glob("*.xlsx"))
+        # Listar arquivos .xlsx de entrada (ignora os já gerados com sufixo " M.xlsx")
+        pedidos = sorted(
+            p for p in self.pedidos_dir.glob("*.xlsx")
+            if not p.stem.endswith(" M")
+        )
         
         if not pedidos:
             LOGGER.warning(f"⚠️  Nenhum arquivo .xlsx encontrado em {self.pedidos_dir}")
