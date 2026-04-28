@@ -108,26 +108,36 @@ class ExcelAutomation:
         # Extrair dados de todas as sheets do pedido
         todos_produtos = []
         todas_quantidades = []
-        
+        col_produtos_referencia: Optional[int] = None
+        col_qtd_referencia: Optional[int] = None
+
         for sheet_idx, sheet_name in enumerate(pedido_wb.sheetnames, 1):
             LOGGER.info(f"   [2.{sheet_idx}] Processando sheet: '{sheet_name}'")
-            
+
             sheet = pedido_wb[sheet_name]
-            
+
             # Localizar linha de header e colunas de código e qtd
             resultado = self._encontrar_linha_e_colunas(sheet)
 
             if resultado is not None:
                 row_header, col_produtos, col_qtd = resultado
                 data_start_row = row_header + 1
-            else:
-                # Sem header (ex: páginas 2+ do pedido): detecta colunas pelo conteúdo
-                LOGGER.info(f"      ℹ️  Sem header em '{sheet_name}', detectando colunas pelo conteúdo")
-                col_produtos, col_qtd = self._detectar_colunas_por_conteudo(sheet)
-                if col_produtos is None or col_qtd is None:
-                    LOGGER.warning(f"      ⚠️  Não foi possível detectar colunas em '{sheet_name}', pulando sheet")
-                    continue
+                # Guarda as colunas da primeira sheet com header para reusar nas seguintes
+                col_produtos_referencia = col_produtos
+                col_qtd_referencia = col_qtd
+            elif col_produtos_referencia is not None:
+                # Sheets seguintes sem header: reutiliza as colunas já identificadas
+                LOGGER.info(
+                    f"      ℹ️  Sem header em '{sheet_name}', "
+                    f"reutilizando colunas da página anterior "
+                    f"(código={col_produtos_referencia}, qtd={col_qtd_referencia})"
+                )
+                col_produtos = col_produtos_referencia
+                col_qtd = col_qtd_referencia
                 data_start_row = 1
+            else:
+                LOGGER.warning(f"      ⚠️  Sem header e sem referência anterior em '{sheet_name}', pulando sheet")
+                continue
 
             # Extrair pares código+quantidade
             produtos, quantidades = self._extrair_produtos(
