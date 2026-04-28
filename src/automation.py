@@ -27,6 +27,7 @@ class MercosAutomation:
         self.config = config
         self.output_dir = output_dir
         self._processed = 0
+        self.cliente_contador: dict[str, int] = {}  # Rastreia quantas vezes cada cliente apareceu
 
     def run(self) -> list[OrderExportResult]:
         LOGGER.info("Starting automation for pedidos na lista")
@@ -99,8 +100,30 @@ class MercosAutomation:
         time.sleep(2.0)  # Delay apos ENTER de confirmacao
 
     def save_pdf(self, customer_name: str) -> Path:
-        safe_name = self._safe_filename(customer_name)
+        """Salva PDF com tratamento automático de duplicatas de clientes"""
+        LOGGER.info(f"💾 Iniciando save_pdf para cliente: '{customer_name}'")
+        
+        # Obtém o nome base (sem números do final)
+        base_name = self._get_base_name(customer_name)
+        LOGGER.info(f"   Nome base extraído (ignorando números): '{base_name}'")
+        
+        # Obtém o nome que está no campo de save
+        field_text = self._get_field_text()
+        field_base = self._get_base_name(field_text) if field_text else ""
+        LOGGER.info(f"   Nome no campo de save: '{field_text}' (base: '{field_base}')")
+        
+        # Determina o nome final com numeração automática
+        if field_base and field_base == base_name:
+            # Mesmo cliente (comparando sem números)
+            LOGGER.info(f"⚠️  Cliente repetido detectado!")
+            final_name = self._get_numbered_name(base_name)
+        else:
+            # Cliente novo
+            final_name = self._get_numbered_name(base_name)
+        
+        safe_name = self._safe_filename(final_name)
         file_path = self.output_dir / f"{safe_name}.pdf"
+        LOGGER.info(f"   Nome final para salvar: '{final_name}' → arquivo: '{file_path.name}'")
 
         if self.config.save_dialog_filename_field is not None:
             pyautogui.click(
@@ -133,6 +156,7 @@ class MercosAutomation:
         
         self._press("esc")
         time.sleep(self.config.ui_delay)
+        LOGGER.info(f"✅ PDF salvo com sucesso: {file_path.name}")
         return file_path
 
     def read_customer_name(self) -> str:
@@ -243,6 +267,52 @@ class MercosAutomation:
 
     def _sleep(self) -> None:
         time.sleep(self.config.ui_delay)
+
+    def _get_base_name(self, name: str) -> str:
+        """Remove números do final do nome para comparação (ex: 'ACESSOCAR 2' -> 'ACESSOCAR')"""
+        import re
+        # Remove ' 2', ' 3', etc do final
+        base = re.sub(r'\s+\d+$', '', name)
+        return base.strip()
+
+    def _get_field_text(self) -> str:
+        """Lê o texto atualmente no campo de save (via screenshot e OCR simples)"""
+        if self.config.save_dialog_filename_field is None:
+            return ""
+        
+        # Captura uma imagem pequena ao redor do campo
+        region_size = 300  # largura aproximada
+        x = self.config.save_dialog_filename_field.x
+        y = self.config.save_dialog_filename_field.y
+        
+        try:
+            screenshot = pyautogui.screenshot(
+                region=(x - 50, y - 10, region_size, 30)
+            )
+            # Tenta extrair texto com OCR
+            from .vision import ocr_image
+            result = ocr_image(screenshot, tesseract_cmd=self.config.tesseract_cmd)
+            text = normalize_text(result.text) if result.text else ""
+            LOGGER.debug(f"Campo de save contém: '{text}'")
+            return text
+        except Exception as e:
+            LOGGER.debug(f"Falha ao ler campo de save: {e}")
+            return ""
+
+    def _get_numbered_name(self, base_name: str) -> str:
+        """Retorna o nome com numeração automática se for repetido"""
+        if base_name not in self.cliente_contador:
+            # Primeira vez que vê este cliente
+            self.cliente_contador[base_name] = 1
+            LOGGER.info(f"📊 Novo cliente: {base_name} (contagem: 1)")
+            return base_name
+        else:
+            # Cliente já visto, incrementa contador
+            self.cliente_contador[base_name] += 1
+            count = self.cliente_contador[base_name]
+            numbered_name = f"{base_name} {count}"
+            LOGGER.info(f"📊 Cliente repetido: {base_name} (contagem: {count}) → salvando como '{numbered_name}'")
+            return numbered_name
 
 
 def load_automation_config(config_path: Path) -> AutomationConfig:
