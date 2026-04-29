@@ -267,8 +267,8 @@ class MercosWebAutomation:
 
     def _selecionar_tabela_precos(self) -> None:
         LOGGER.info("   [6] Selecionando tabela de preços...")
-        # Sobe via XPath até o container visual do dropdown (Playwright simula mouse real)
-        self._page.locator('xpath=//select[@name="tabela_preco"]/../..').click()
+        # Clica nas coordenadas exatas do dropdown de tabela de preços
+        self._page.mouse.click(950, 680)
         self._page.wait_for_timeout(800)
         self._page.keyboard.press("Enter")
 
