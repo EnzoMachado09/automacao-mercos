@@ -267,11 +267,8 @@ class MercosWebAutomation:
 
     def _selecionar_tabela_precos(self) -> None:
         LOGGER.info("   [6] Selecionando tabela de preços...")
-        # O <select> nativo está oculto por componente React; sobe ao container pai
-        # via JS para simular o clique que abre o dropdown visual
-        self._page.evaluate(
-            "document.querySelector('select[name=\"tabela_preco\"]').parentElement.click()"
-        )
+        # Sobe via XPath até o container visual do dropdown (Playwright simula mouse real)
+        self._page.locator('xpath=//select[@name="tabela_preco"]/../..').click()
         self._page.wait_for_timeout(800)
         self._page.keyboard.press("Enter")
 
