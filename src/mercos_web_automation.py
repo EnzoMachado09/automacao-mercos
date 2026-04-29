@@ -252,11 +252,13 @@ class MercosWebAutomation:
         campo.press_sequentially(self.config.representada, delay=50)
         self._page.wait_for_timeout(2000)
         campo.press("Enter")
+        # Aguarda a página atualizar após seleção da representada
+        self._page.wait_for_timeout(2000)
 
     def _abrir_modal_planilha(self) -> None:
         LOGGER.info("   [4] Abrindo modal de upload de planilha...")
         self._page.locator(_Sel.BTN_ADICIONAR_PLAN).click()
-        self._page.wait_for_selector('text=Adicionar produtos utilizando planilha', timeout=5000)
+        self._page.wait_for_selector('text=Adicionar produtos utilizando planilha', timeout=10000)
 
     def _fazer_upload_xlsx(self, caminho: Path) -> None:
         LOGGER.info(f"   [5] Fazendo upload: {caminho.name}...")
