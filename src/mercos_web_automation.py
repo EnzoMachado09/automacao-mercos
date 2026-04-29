@@ -273,8 +273,6 @@ class MercosWebAutomation:
             "document.querySelector('select[name=\"tabela_preco\"]').parentElement.click()"
         )
         self._page.wait_for_timeout(800)
-        self._page.keyboard.press("ArrowDown")
-        self._page.wait_for_timeout(300)
         self._page.keyboard.press("Enter")
 
     def _confirmar_importacao(self) -> None:
