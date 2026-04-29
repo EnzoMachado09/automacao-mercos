@@ -250,7 +250,7 @@ class MercosWebAutomation:
         campo = self._page.locator(_Sel.CAMPO_REPRESENTADA).first
         campo.click()
         campo.press_sequentially(self.config.representada, delay=50)
-        self._page.wait_for_timeout(2000)
+        self._page.wait_for_timeout(3000)
         campo.press("Enter")
         # Aguarda a página atualizar após seleção da representada
         self._page.wait_for_timeout(2000)
