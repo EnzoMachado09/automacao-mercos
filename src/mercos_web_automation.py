@@ -152,44 +152,37 @@ class MercosWebAutomation:
     # -------------------------------------------------------------------------
 
     def _iniciar_browser(self) -> None:
-        # Reutiliza o perfil Chrome do usuário para aproveitar sessão existente
-        user_data_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "User Data")
-        if not os.path.isdir(user_data_dir):
-            user_data_dir = None
-            LOGGER.warning("⚠️  Perfil Chrome não encontrado, abrindo browser limpo")
+        # Perfil dedicado ao Playwright dentro da pasta do projeto.
+        # Evita conflito com o Chrome já aberto (dois processos não podem usar
+        # o mesmo user-data-dir ao mesmo tempo).
+        # Na primeira execução o usuário faz login; a sessão fica salva aqui.
+        profile_dir = Path(__file__).parent.parent / "playwright_profile"
+        profile_dir.mkdir(exist_ok=True)
 
-        if user_data_dir:
-            self._browser = self._pw.chromium.launch_persistent_context(
-                user_data_dir=user_data_dir,
-                channel="chrome",
-                headless=self.config.playwright_headless,
-                slow_mo=self.config.playwright_slow_mo,
-            )
-            self._page = self._browser.pages[0] if self._browser.pages else self._browser.new_page()
-        else:
-            browser = self._pw.chromium.launch(
-                headless=self.config.playwright_headless,
-                slow_mo=self.config.playwright_slow_mo,
-            )
-            self._browser = browser
-            self._page = browser.new_page()
-
+        self._browser = self._pw.chromium.launch_persistent_context(
+            user_data_dir=str(profile_dir),
+            channel="chrome",
+            headless=self.config.playwright_headless,
+            slow_mo=self.config.playwright_slow_mo,
+            args=["--start-maximized"],
+            no_viewport=True,
+        )
+        self._page = self._browser.pages[0] if self._browser.pages else self._browser.new_page()
         self._page.set_default_timeout(self.config.timeout_elemento_ms)
 
     def _fazer_login(self) -> None:
         self._page.goto(self.config.mercos_url, wait_until="domcontentloaded")
 
-        # Se já estiver logado (URL tem /pedidos/ ou similar), pula login
+        # Se já estiver logado (sessão salva no perfil), pula login
         if "/pedidos" in self._page.url or "/indicadores" in self._page.url:
             LOGGER.info("✅ Sessão já autenticada, pulando login")
             self._ir_para_lista_pedidos()
             return
 
-        LOGGER.info("🔐 Fazendo login no Mercos...")
-        self._page.fill('input[type="email"], input[name="email"]', self.config.email)
-        self._page.fill('input[type="password"], input[name="password"], input[name="senha"]', self.config.senha)
-        self._page.click('button[type="submit"], input[type="submit"]')
-        self._page.wait_for_url(f"**/{self.config.mercos_url.split('/')[-1]}/**", timeout=30000)
+        # Primeira execução: aguarda o usuário fazer login manualmente no browser
+        LOGGER.info("🔐 Faça login no Mercos no browser que abriu e pressione Enter aqui para continuar...")
+        input("   >>> Pressione Enter após concluir o login: ")
+        self._page.wait_for_load_state("domcontentloaded")
         self._ir_para_lista_pedidos()
 
     # -------------------------------------------------------------------------

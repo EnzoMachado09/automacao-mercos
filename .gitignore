@@ -12,3 +12,4 @@ dist/
 *.log
 automation_config.json
 screenshots/
+playwright_profile/
