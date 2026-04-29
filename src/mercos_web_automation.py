@@ -267,9 +267,11 @@ class MercosWebAutomation:
 
     def _selecionar_tabela_precos(self) -> None:
         LOGGER.info("   [6] Selecionando tabela de preços...")
-        # Clica nas coordenadas exatas do dropdown de tabela de preços
-        self._page.mouse.click(950, 680)
-        self._page.wait_for_timeout(800)
+        # React Select expõe um input[role="combobox"] dentro do dropdown visível
+        self._page.get_by_role("combobox").first.click()
+        self._page.wait_for_timeout(500)
+        self._page.keyboard.press("ArrowDown")
+        self._page.wait_for_timeout(300)
         self._page.keyboard.press("Enter")
 
     def _confirmar_importacao(self) -> None:
@@ -318,7 +320,8 @@ class MercosWebAutomation:
             self._page.wait_for_timeout(300)
         except Exception:
             pass
-        self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click()
+        # force=True ignora modal ou overlay que esteja bloqueando o clique
+        self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click(force=True)
         self._page.wait_for_load_state("domcontentloaded")
 
     # -------------------------------------------------------------------------
