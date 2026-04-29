@@ -11,5 +11,6 @@ dist/
 *.pyd
 *.log
 automation_config.json
+etapa3_config.json
 screenshots/
 playwright_profile/

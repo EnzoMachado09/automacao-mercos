@@ -178,7 +178,18 @@ class MercosWebAutomation:
             self._ir_para_lista_pedidos()
             return
 
-        # Primeira execução: aguarda o usuário fazer login manualmente no browser
+        # Login automático com credenciais do config
+        if self.config.email and self.config.senha:
+            LOGGER.info("🔐 Realizando login automático...")
+            self._page.locator('input[type="email"], input[name="email"]').first.fill(self.config.email)
+            self._page.locator('input[type="password"], input[name="password"]').first.fill(self.config.senha)
+            self._page.locator('button:has-text("ENTRAR"), button[type="submit"]').first.click()
+            self._page.wait_for_load_state("networkidle", timeout=20000)
+            LOGGER.info("✅ Login realizado com sucesso")
+            self._ir_para_lista_pedidos()
+            return
+
+        # Fallback: aguarda login manual (sem credenciais no config)
         LOGGER.info("🔐 Faça login no Mercos no browser que abriu e pressione Enter aqui para continuar...")
         input("   >>> Pressione Enter após concluir o login: ")
         self._page.wait_for_load_state("domcontentloaded")
