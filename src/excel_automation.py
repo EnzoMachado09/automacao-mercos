@@ -10,8 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 from dataclasses import dataclass
+import json
 import logging
 import re
+from datetime import datetime
 from typing import Optional
 
 from openpyxl import load_workbook
@@ -149,15 +151,32 @@ class ExcelAutomation:
 
             LOGGER.info(f"      ✅ {len(produtos)} produtos, {len(quantidades)} quantidades")
         
+        # Extrair metadados (cliente e data) da primeira sheet
+        metadados = {"cliente": None, "data_pedido": None}
+        try:
+            primeira_sheet = pedido_wb[pedido_wb.sheetnames[0]]
+            metadados = self._extrair_metadados(primeira_sheet)
+        except Exception as e:
+            LOGGER.warning(f"      ⚠️  Não foi possível extrair metadados: {e}")
+
         pedido_wb.close()
-        
+
         # Preencher modelo
         LOGGER.info(f"   [3] Preenchendo modelo...")
         nome_saida = pedido_path.stem + " M.xlsx"
         caminho_saida = self.output_dir / nome_saida
         self._preencher_modelo(todos_produtos, todas_quantidades, caminho_saida)
-        
-        # Salvar com sufixo ' M'
+
+        # Salvar metadados em JSON ao lado do M.xlsx
+        try:
+            caminho_json = self.output_dir / (pedido_path.stem + " M.json")
+            metadados["arquivo_xlsx"] = nome_saida
+            metadados["gerado_em"] = datetime.now().isoformat(timespec="seconds")
+            caminho_json.write_text(json.dumps(metadados, ensure_ascii=False, indent=2), encoding="utf-8")
+            LOGGER.info(f"      ✅ Metadados salvos: cliente={metadados['cliente']}, data={metadados['data_pedido']}")
+        except Exception as e:
+            LOGGER.warning(f"      ⚠️  Não foi possível salvar metadados JSON: {e}")
+
         LOGGER.info(f"   [4] Salvando resultado...")
         LOGGER.info(f"      → {caminho_saida}")
         LOGGER.info(f"   ✅ Pedido processado com sucesso")
@@ -165,6 +184,42 @@ class ExcelAutomation:
     # ============================================================================
     # FUNÇÕES AUXILIARES - MANIPULAÇÃO DE EXCEL
     # ============================================================================
+
+    def _extrair_metadados(self, sheet: Worksheet) -> dict:
+        """Extrai nome do cliente e data do pedido varrendo a planilha por labels.
+
+        Regras:
+        - "Pessoa" → valor à direita = nome do cliente
+        - "Data" (exato, não "Data Ent.") → valor à direita = data do pedido
+        """
+        cliente = None
+        data_pedido = None
+
+        for row in range(1, sheet.max_row + 1):
+            for col in range(1, sheet.max_column + 1):
+                val = sheet.cell(row=row, column=col).value
+                if val is None:
+                    continue
+                texto = str(val).strip().lower()
+
+                if texto == "pessoa" and cliente is None:
+                    vizinho = sheet.cell(row=row, column=col + 1).value
+                    if vizinho:
+                        cliente = str(vizinho).strip()
+
+                if texto == "data" and data_pedido is None:
+                    vizinho = sheet.cell(row=row, column=col + 1).value
+                    if vizinho:
+                        data_str = str(vizinho).strip()
+                        # Aceita tanto string "DD/MM/AAAA" quanto objeto date/datetime do openpyxl
+                        if hasattr(vizinho, "strftime"):
+                            data_str = vizinho.strftime("%d/%m/%Y")
+                        data_pedido = data_str
+
+                if cliente and data_pedido:
+                    return {"cliente": cliente, "data_pedido": data_pedido}
+
+        return {"cliente": cliente, "data_pedido": data_pedido}
 
     # Formatos aceitos: nnnn | nnnn-nn | nnnn-ln | nnnn-l | llnnnn | nnnnln | nnnn-n
     _CODIGO_RE = re.compile(

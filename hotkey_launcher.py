@@ -116,6 +116,17 @@ class HotKeyLauncher:
         )
         self.rb2.pack(anchor="w")
 
+        self.rb3 = Radiobutton(
+            etapa_radio_frame,
+            text="Etapa 3: Criar pedidos no Mercos Web",
+            variable=self.etapa_selecionada,
+            value="etapa3",
+            bg="#fff3e0",
+            fg="#333333",
+            font=info_font,
+        )
+        self.rb3.pack(anchor="w")
+
         config_frame = Frame(main_frame, bg="#e8f5e9", relief="solid", borderwidth=1)
         config_frame.pack(fill="x", pady=(0, 10), padx=0)
 
@@ -252,11 +263,13 @@ class HotKeyLauncher:
         thread.start()
 
     def _set_running_ui(self, etapa: str):
-        etapa_label = "ETAPA 1" if etapa == "etapa1" else "ETAPA 2"
+        labels = {"etapa1": "ETAPA 1", "etapa2": "ETAPA 2", "etapa3": "ETAPA 3"}
+        etapa_label = labels.get(etapa, etapa.upper())
         self.status_label.config(text=f"EXECUTANDO {etapa_label}", bg="#fff3cd", fg="#8a6d3b")
         self.toggle_button.config(text="PARAR", bg="#ff9800")
         self.rb1.config(state="disabled")
         self.rb2.config(state="disabled")
+        self.rb3.config(state="disabled")
         self.max_orders_entry.config(state="disabled")
         self.root.update()
 
@@ -265,6 +278,7 @@ class HotKeyLauncher:
         self.toggle_button.config(text="INICIAR ETAPA SELECIONADA", bg="#2196F3")
         self.rb1.config(state="normal")
         self.rb2.config(state="normal")
+        self.rb3.config(state="normal")
         self.max_orders_entry.config(state="normal")
         self.root.update()
 
@@ -287,7 +301,10 @@ class HotKeyLauncher:
                 str(max_orders_val),
             ]
 
-        return [str(python_exe), "main_etapa2.py"]
+        if etapa == "etapa2":
+            return [str(python_exe), "main_etapa2.py"]
+
+        return [str(python_exe), "main_etapa3.py"]
 
     def _run_selected_stage(self, etapa: str):
         try:

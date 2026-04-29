@@ -1,0 +1,313 @@
+"""
+Automação da Etapa 3: Criar pedidos no sistema web Mercos
+Lê os arquivos M.xlsx + M.json gerados pela Etapa 2 e cria os pedidos no Mercos.
+
+Fluxo por pedido:
+  1. Criar novo orçamento
+  2. Preencher cliente
+  3. Selecionar representada
+  4. Importar M.xlsx por planilha
+  5. Finalizar adição de produtos
+  6. Preencher condição de pagamento e salvar detalhes
+  7. Gerar pedido (orçamento → pedido)
+  8. Alterar data de emissão para a data original do pedido
+  9. Avançar para o próximo
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+from playwright.sync_api import sync_playwright, Page, Browser, Playwright
+
+LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class Etapa3Config:
+    mercos_url: str
+    email: str
+    senha: str
+    representada: str
+    condicao_pagamento: str
+    output_dir: Path
+    playwright_headless: bool = False
+    playwright_slow_mo: int = 500
+    timeout_elemento_ms: int = 10000
+
+
+@dataclass
+class MetadadosPedido:
+    cliente: str
+    data_pedido: str        # formato DD/MM/AAAA
+    arquivo_xlsx: Path      # caminho absoluto do M.xlsx
+    nome_arquivo: str = ""  # nome do arquivo para log
+
+
+class _Sel:
+    """Seletores centralizados — alterar aqui se o Mercos mudar a UI."""
+    CAMPO_CLIENTE        = 'input[placeholder="Digite o nome do cliente e selecione"]'
+    DROPDOWN_OPCAO_1     = 'ul.select2-results li:first-child, .autocomplete-result:first-child, [role="option"]:first-child'
+    BTN_LISTAR_REPRES    = 'text=Listar todas as representadas'
+    CAMPO_REPRESENTADA   = 'input[placeholder="Digite o nome da representada e selecione"]'
+    BTN_ADICIONAR_PLAN   = 'text=Adicionar por planilha'
+    INPUT_FILE_UPLOAD    = 'input[type="file"]'
+    BTN_SELEC_PLANILHA   = 'text=Selecione a planilha'
+    SELECT_TABELA_PRECOS = 'select[name="tabela_preco"], select:has-text("Selecione a tabela")'
+    BTN_ADICIONAR_PROD   = 'text=Adicionar os produtos da planilha'
+    NOTIF_IMPORTADOS     = 'text=produtos importados'
+    BTN_TERMINEI         = 'text=Terminei de adicionar os produtos'
+    CAMPO_COND_PGTO      = 'input[placeholder="Obrigatório"], input[placeholder*="ondição"]'
+    BTN_SALVAR_DETALHES  = 'text=Salvar detalhes'
+    BTN_GERAR_PEDIDO     = 'text=Gerar pedido'
+    BTN_FATURAR_PEDIDO   = 'text=Faturar pedido'
+    BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
+    CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"], input[placeholder*="Data"]'
+    BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento, text=Novo pedido, text=Novo orçamento'
+    LINK_PEDIDOS_SIDEBAR = 'a:has-text("PEDIDOS"), a:has-text("Pedidos")'
+
+
+class MercosWebAutomation:
+    """Automação web do Mercos usando Playwright."""
+
+    def __init__(self, config: Etapa3Config) -> None:
+        self.config = config
+        self.output_dir = Path(config.output_dir)
+        self._page: Optional[Page] = None
+        self._browser: Optional[Browser] = None
+        self._pw: Optional[Playwright] = None
+        self.pedido_count = 0
+        self.falhas = 0
+
+    def run(self) -> None:
+        LOGGER.info("=" * 70)
+        LOGGER.info("🚀 INICIANDO AUTOMAÇÃO ETAPA 3 - CRIAÇÃO DE PEDIDOS NO MERCOS")
+        LOGGER.info("=" * 70)
+
+        pedidos = self._carregar_pedidos_pendentes()
+        if not pedidos:
+            LOGGER.warning("⚠️  Nenhum pedido pendente encontrado (sem pares .xlsx + .json)")
+            return
+
+        LOGGER.info(f"📂 {len(pedidos)} pedido(s) encontrado(s)")
+
+        self._pw = sync_playwright().start()
+        try:
+            self._iniciar_browser()
+            self._fazer_login()
+
+            for pedido in pedidos:
+                self.pedido_count += 1
+                LOGGER.info(f"\n{'='*70}")
+                LOGGER.info(f"📋 PEDIDO {self.pedido_count}/{len(pedidos)}: {pedido.nome_arquivo}")
+                LOGGER.info(f"   Cliente: {pedido.cliente} | Data: {pedido.data_pedido}")
+                LOGGER.info(f"{'='*70}")
+                try:
+                    self._processar_pedido(pedido)
+                except Exception as e:
+                    self.falhas += 1
+                    LOGGER.error(f"❌ Erro ao processar {pedido.nome_arquivo}: {e}")
+                    self._screenshot_debug(f"erro_{pedido.nome_arquivo}")
+                    self._ir_para_lista_pedidos()
+                    continue
+        finally:
+            if self._browser:
+                self._browser.close()
+            self._pw.stop()
+
+        LOGGER.info(f"\n{'='*70}")
+        LOGGER.info(f"✅ ETAPA 3 CONCLUÍDA — {self.pedido_count} pedido(s), {self.falhas} falha(s)")
+        LOGGER.info(f"{'='*70}\n")
+
+    # -------------------------------------------------------------------------
+    # Carregamento de dados
+    # -------------------------------------------------------------------------
+
+    def _carregar_pedidos_pendentes(self) -> list[MetadadosPedido]:
+        pedidos = []
+        for json_path in sorted(self.output_dir.glob("* M.json")):
+            xlsx_path = json_path.with_suffix(".xlsx")
+            if not xlsx_path.exists():
+                LOGGER.warning(f"⚠️  JSON sem xlsx correspondente: {json_path.name}")
+                continue
+            try:
+                dados = json.loads(json_path.read_text(encoding="utf-8"))
+                pedidos.append(MetadadosPedido(
+                    cliente=dados.get("cliente") or "",
+                    data_pedido=dados.get("data_pedido") or "",
+                    arquivo_xlsx=xlsx_path.resolve(),
+                    nome_arquivo=xlsx_path.name,
+                ))
+            except Exception as e:
+                LOGGER.warning(f"⚠️  Falha ao ler {json_path.name}: {e}")
+        return pedidos
+
+    # -------------------------------------------------------------------------
+    # Browser e login
+    # -------------------------------------------------------------------------
+
+    def _iniciar_browser(self) -> None:
+        # Reutiliza o perfil Chrome do usuário para aproveitar sessão existente
+        user_data_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "User Data")
+        if not os.path.isdir(user_data_dir):
+            user_data_dir = None
+            LOGGER.warning("⚠️  Perfil Chrome não encontrado, abrindo browser limpo")
+
+        if user_data_dir:
+            self._browser = self._pw.chromium.launch_persistent_context(
+                user_data_dir=user_data_dir,
+                channel="chrome",
+                headless=self.config.playwright_headless,
+                slow_mo=self.config.playwright_slow_mo,
+            )
+            self._page = self._browser.pages[0] if self._browser.pages else self._browser.new_page()
+        else:
+            browser = self._pw.chromium.launch(
+                headless=self.config.playwright_headless,
+                slow_mo=self.config.playwright_slow_mo,
+            )
+            self._browser = browser
+            self._page = browser.new_page()
+
+        self._page.set_default_timeout(self.config.timeout_elemento_ms)
+
+    def _fazer_login(self) -> None:
+        self._page.goto(self.config.mercos_url, wait_until="domcontentloaded")
+
+        # Se já estiver logado (URL tem /pedidos/ ou similar), pula login
+        if "/pedidos" in self._page.url or "/indicadores" in self._page.url:
+            LOGGER.info("✅ Sessão já autenticada, pulando login")
+            self._ir_para_lista_pedidos()
+            return
+
+        LOGGER.info("🔐 Fazendo login no Mercos...")
+        self._page.fill('input[type="email"], input[name="email"]', self.config.email)
+        self._page.fill('input[type="password"], input[name="password"], input[name="senha"]', self.config.senha)
+        self._page.click('button[type="submit"], input[type="submit"]')
+        self._page.wait_for_url(f"**/{self.config.mercos_url.split('/')[-1]}/**", timeout=30000)
+        self._ir_para_lista_pedidos()
+
+    # -------------------------------------------------------------------------
+    # Fluxo principal por pedido
+    # -------------------------------------------------------------------------
+
+    def _processar_pedido(self, pedido: MetadadosPedido) -> None:
+        self._navegar_para_novo_pedido()
+        self._preencher_cliente(pedido.cliente)
+        self._selecionar_representada()
+        self._abrir_modal_planilha()
+        self._fazer_upload_xlsx(pedido.arquivo_xlsx)
+        self._selecionar_tabela_precos()
+        self._confirmar_importacao()
+        self._aguardar_importacao()
+        self._terminar_adicao_produtos()
+        self._preencher_detalhes_iniciais()
+        self._gerar_pedido()
+        if pedido.data_pedido:
+            self._alterar_data(pedido.data_pedido)
+        LOGGER.info(f"   ✅ Pedido criado com sucesso")
+
+    def _navegar_para_novo_pedido(self) -> None:
+        LOGGER.info("   [1] Navegando para novo pedido...")
+        self._ir_para_lista_pedidos()
+        # Tenta variações do botão de criar pedido
+        for texto in ["Criar pedido / orçamento", "Novo pedido", "Novo orçamento", "Criar orçamento"]:
+            btn = self._page.locator(f'text="{texto}"').first
+            if btn.is_visible(timeout=2000):
+                btn.click()
+                break
+        self._page.wait_for_load_state("domcontentloaded")
+
+    def _preencher_cliente(self, nome: str) -> None:
+        LOGGER.info(f"   [2] Preenchendo cliente: {nome}...")
+        campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
+        campo.click()
+        campo.fill(nome)
+        # Aguarda dropdown aparecer e clica na primeira opção
+        self._page.wait_for_selector('[role="option"], .select2-result, .autocomplete-result, li.resultado', timeout=8000)
+        self._page.locator('[role="option"], .select2-result, .autocomplete-result, li.resultado').first.click()
+
+    def _selecionar_representada(self) -> None:
+        LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
+        self._page.locator(_Sel.BTN_LISTAR_REPRES).click()
+        self._page.wait_for_selector('[role="option"], .select2-result, li.resultado', timeout=5000)
+        # Clica na opção que contenha o nome da representada configurada
+        self._page.locator(f'[role="option"]:has-text("{self.config.representada}"), li:has-text("{self.config.representada}")').first.click()
+
+    def _abrir_modal_planilha(self) -> None:
+        LOGGER.info("   [4] Abrindo modal de upload de planilha...")
+        self._page.locator(_Sel.BTN_ADICIONAR_PLAN).click()
+        self._page.wait_for_selector('text=Adicionar produtos utilizando planilha', timeout=5000)
+
+    def _fazer_upload_xlsx(self, caminho: Path) -> None:
+        LOGGER.info(f"   [5] Fazendo upload: {caminho.name}...")
+        # set_input_files funciona mesmo com input oculto
+        self._page.locator(_Sel.INPUT_FILE_UPLOAD).set_input_files(str(caminho))
+
+    def _selecionar_tabela_precos(self) -> None:
+        LOGGER.info("   [6] Selecionando tabela de preços...")
+        select = self._page.locator(_Sel.SELECT_TABELA_PRECOS).first
+        # Seleciona primeira opção disponível (Preço de tabela)
+        select.select_option(index=1)
+
+    def _confirmar_importacao(self) -> None:
+        LOGGER.info("   [7] Confirmando importação...")
+        self._page.locator(_Sel.BTN_ADICIONAR_PROD).click()
+
+    def _aguardar_importacao(self) -> None:
+        LOGGER.info("   [8] Aguardando importação dos produtos...")
+        self._page.wait_for_selector(_Sel.NOTIF_IMPORTADOS, timeout=30000)
+        LOGGER.info("      ✅ Produtos importados!")
+
+    def _terminar_adicao_produtos(self) -> None:
+        LOGGER.info("   [9] Finalizando adição de produtos...")
+        self._page.locator(_Sel.BTN_TERMINEI).click()
+        # Aguarda modal de detalhes abrir
+        self._page.wait_for_selector('text=Detalhes do pedido', timeout=8000)
+
+    def _preencher_detalhes_iniciais(self) -> None:
+        LOGGER.info(f"   [10] Preenchendo condição de pagamento: {self.config.condicao_pagamento}...")
+        campo = self._page.locator(_Sel.CAMPO_COND_PGTO).first
+        campo.fill(self.config.condicao_pagamento)
+        self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
+        self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
+
+    def _gerar_pedido(self) -> None:
+        LOGGER.info("   [11] Gerando pedido...")
+        # O botão pode ser "Gerar pedido" (antes) ou "Faturar pedido" (depois)
+        btn = self._page.locator(_Sel.BTN_GERAR_PEDIDO).first
+        btn.click()
+        self._page.wait_for_load_state("domcontentloaded")
+
+    def _alterar_data(self, data: str) -> None:
+        LOGGER.info(f"   [12] Alterando data para: {data}...")
+        self._page.locator(_Sel.BTN_ALTERAR_DETALHES).click()
+        self._page.wait_for_selector('text=Detalhes do pedido', timeout=5000)
+        campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
+        campo_data.fill("")
+        campo_data.type(data)
+        self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
+        self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
+
+    def _ir_para_lista_pedidos(self) -> None:
+        self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click()
+        self._page.wait_for_load_state("domcontentloaded")
+
+    # -------------------------------------------------------------------------
+    # Utilitários
+    # -------------------------------------------------------------------------
+
+    def _screenshot_debug(self, nome: str) -> None:
+        try:
+            out = Path("out")
+            out.mkdir(exist_ok=True)
+            caminho = out / f"etapa3_debug_{nome[:40]}.png"
+            self._page.screenshot(path=str(caminho))
+            LOGGER.info(f"      📸 Screenshot salvo: {caminho}")
+        except Exception:
+            pass
