@@ -266,8 +266,8 @@ class MercosWebAutomation:
     def _selecionar_tabela_precos(self) -> None:
         LOGGER.info("   [6] Selecionando tabela de preços...")
         select = self._page.locator(_Sel.SELECT_TABELA_PRECOS).first
-        # Seleciona primeira opção disponível (Preço de tabela)
-        select.select_option(index=1)
+        # force=True necessário pois o <select> nativo fica oculto por componente customizado
+        select.select_option(index=1, force=True)
 
     def _confirmar_importacao(self) -> None:
         LOGGER.info("   [7] Confirmando importação...")
@@ -309,6 +309,12 @@ class MercosWebAutomation:
         self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
 
     def _ir_para_lista_pedidos(self) -> None:
+        # Fecha qualquer modal aberto que bloqueie cliques na sidebar
+        try:
+            self._page.keyboard.press("Escape")
+            self._page.wait_for_timeout(300)
+        except Exception:
+            pass
         self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click()
         self._page.wait_for_load_state("domcontentloaded")
 
