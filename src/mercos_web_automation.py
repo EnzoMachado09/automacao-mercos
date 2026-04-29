@@ -242,9 +242,7 @@ class MercosWebAutomation:
         campo.press_sequentially(nome, delay=50)
         # Aguarda o servidor responder com sugestões
         self._page.wait_for_timeout(2000)
-        # Seleciona o primeiro resultado via teclado (mais robusto que seletor CSS)
-        campo.press("ArrowDown")
-        self._page.wait_for_timeout(300)
+        # Primeiro resultado já fica selecionado automaticamente, basta confirmar
         campo.press("Enter")
 
     def _selecionar_representada(self) -> None:
