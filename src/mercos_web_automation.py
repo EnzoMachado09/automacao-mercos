@@ -247,10 +247,11 @@ class MercosWebAutomation:
 
     def _selecionar_representada(self) -> None:
         LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
-        self._page.locator(_Sel.BTN_LISTAR_REPRES).click()
-        self._page.wait_for_selector('[role="option"], .select2-result, li.resultado', timeout=5000)
-        # Clica na opção que contenha o nome da representada configurada
-        self._page.locator(f'[role="option"]:has-text("{self.config.representada}"), li:has-text("{self.config.representada}")').first.click()
+        campo = self._page.locator(_Sel.CAMPO_REPRESENTADA).first
+        campo.click()
+        campo.press_sequentially(self.config.representada, delay=50)
+        self._page.wait_for_timeout(2000)
+        campo.press("Enter")
 
     def _abrir_modal_planilha(self) -> None:
         LOGGER.info("   [4] Abrindo modal de upload de planilha...")
