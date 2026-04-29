@@ -51,25 +51,24 @@ class MetadadosPedido:
 
 class _Sel:
     """Seletores centralizados — alterar aqui se o Mercos mudar a UI."""
-    CAMPO_CLIENTE        = 'input[placeholder="Digite o nome do cliente e selecione"]'
-    DROPDOWN_OPCAO_1     = 'ul.select2-results li:first-child, .autocomplete-result:first-child, [role="option"]:first-child'
+    CAMPO_CLIENTE        = 'input[placeholder="Digite o nome ou CNPJ/CPF do cliente e selecione"]'
+    DROPDOWN_OPCAO_1     = '[role="option"]:first-child, .select2-result:first-child, .autocomplete-result:first-child'
     BTN_LISTAR_REPRES    = 'text=Listar todas as representadas'
     CAMPO_REPRESENTADA   = 'input[placeholder="Digite o nome da representada e selecione"]'
     BTN_ADICIONAR_PLAN   = 'text=Adicionar por planilha'
     INPUT_FILE_UPLOAD    = 'input[type="file"]'
-    BTN_SELEC_PLANILHA   = 'text=Selecione a planilha'
-    SELECT_TABELA_PRECOS = 'select[name="tabela_preco"], select:has-text("Selecione a tabela")'
+    SELECT_TABELA_PRECOS = 'select'
     BTN_ADICIONAR_PROD   = 'text=Adicionar os produtos da planilha'
     NOTIF_IMPORTADOS     = 'text=produtos importados'
     BTN_TERMINEI         = 'text=Terminei de adicionar os produtos'
-    CAMPO_COND_PGTO      = 'input[placeholder="Obrigatório"], input[placeholder*="ondição"]'
+    CAMPO_COND_PGTO      = 'input[placeholder="Obrigatório"]'
     BTN_SALVAR_DETALHES  = 'text=Salvar detalhes'
     BTN_GERAR_PEDIDO     = 'text=Gerar pedido'
-    BTN_FATURAR_PEDIDO   = 'text=Faturar pedido'
     BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
-    CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"], input[placeholder*="Data"]'
-    BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento, text=Novo pedido, text=Novo orçamento'
-    LINK_PEDIDOS_SIDEBAR = 'a:has-text("PEDIDOS"), a:has-text("Pedidos")'
+    CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"]'
+    BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento'
+    LINK_PEDIDOS_SIDEBAR = 'a:has-text("PEDIDOS")'
+    POPUP_FECHAR         = 'button:has-text("×"), button.close, [aria-label="Close"], button:has-text("Fechar")'
 
 
 class MercosWebAutomation:
@@ -205,16 +204,23 @@ class MercosWebAutomation:
             self._alterar_data(pedido.data_pedido)
         LOGGER.info(f"   ✅ Pedido criado com sucesso")
 
+    def _fechar_popups(self) -> None:
+        """Fecha qualquer popup/tooltip flutuante antes de interagir com a página."""
+        for sel in [_Sel.POPUP_FECHAR, 'button:has-text("×")', '.modal .close']:
+            try:
+                btn = self._page.locator(sel).first
+                if btn.is_visible(timeout=800):
+                    btn.click()
+            except Exception:
+                pass
+
     def _navegar_para_novo_pedido(self) -> None:
         LOGGER.info("   [1] Navegando para novo pedido...")
         self._ir_para_lista_pedidos()
-        # Tenta variações do botão de criar pedido
-        for texto in ["Criar pedido / orçamento", "Novo pedido", "Novo orçamento", "Criar orçamento"]:
-            btn = self._page.locator(f'text="{texto}"').first
-            if btn.is_visible(timeout=2000):
-                btn.click()
-                break
-        self._page.wait_for_load_state("domcontentloaded")
+        self._page.locator(_Sel.BTN_CRIAR_PEDIDO).first.click()
+        # Aguarda o campo de cliente aparecer — confirma que a página carregou
+        self._page.wait_for_selector(_Sel.CAMPO_CLIENTE, timeout=15000)
+        self._fechar_popups()
 
     def _preencher_cliente(self, nome: str) -> None:
         LOGGER.info(f"   [2] Preenchendo cliente: {nome}...")
@@ -222,8 +228,8 @@ class MercosWebAutomation:
         campo.click()
         campo.fill(nome)
         # Aguarda dropdown aparecer e clica na primeira opção
-        self._page.wait_for_selector('[role="option"], .select2-result, .autocomplete-result, li.resultado', timeout=8000)
-        self._page.locator('[role="option"], .select2-result, .autocomplete-result, li.resultado').first.click()
+        self._page.wait_for_selector('[role="option"]', timeout=8000)
+        self._page.locator('[role="option"]').first.click()
 
     def _selecionar_representada(self) -> None:
         LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
