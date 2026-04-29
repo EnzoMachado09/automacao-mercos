@@ -226,9 +226,11 @@ class MercosWebAutomation:
         LOGGER.info(f"   [2] Preenchendo cliente: {nome}...")
         campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
         campo.click()
-        campo.fill(nome)
+        # press_sequentially dispara eventos de teclado reais, necessários para
+        # o autocomplete do Mercos reagir (fill() define o valor via JS sem eventos)
+        campo.press_sequentially(nome, delay=50)
         # Aguarda dropdown aparecer e clica na primeira opção
-        self._page.wait_for_selector('[role="option"]', timeout=8000)
+        self._page.wait_for_selector('[role="option"]', timeout=15000)
         self._page.locator('[role="option"]').first.click()
 
     def _selecionar_representada(self) -> None:
