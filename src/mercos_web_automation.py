@@ -240,9 +240,12 @@ class MercosWebAutomation:
         # press_sequentially dispara eventos de teclado reais, necessários para
         # o autocomplete do Mercos reagir (fill() define o valor via JS sem eventos)
         campo.press_sequentially(nome, delay=50)
-        # Aguarda dropdown aparecer e clica na primeira opção
-        self._page.wait_for_selector('[role="option"]', timeout=15000)
-        self._page.locator('[role="option"]').first.click()
+        # Aguarda o servidor responder com sugestões
+        self._page.wait_for_timeout(2000)
+        # Seleciona o primeiro resultado via teclado (mais robusto que seletor CSS)
+        campo.press("ArrowDown")
+        self._page.wait_for_timeout(300)
+        campo.press("Enter")
 
     def _selecionar_representada(self) -> None:
         LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
