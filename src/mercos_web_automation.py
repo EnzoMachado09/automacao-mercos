@@ -267,9 +267,11 @@ class MercosWebAutomation:
 
     def _selecionar_tabela_precos(self) -> None:
         LOGGER.info("   [6] Selecionando tabela de preços...")
-        select = self._page.locator(_Sel.SELECT_TABELA_PRECOS).first
-        # force=True necessário pois o <select> nativo fica oculto por componente customizado
-        select.select_option(index=1, force=True)
+        # O <select> nativo está oculto por um componente React — clica no elemento
+        # visível (placeholder) para abrir o dropdown e Enter seleciona o primeiro item
+        self._page.locator('text=Selecione a tabela de preços').click()
+        self._page.wait_for_timeout(500)
+        self._page.keyboard.press("Enter")
 
     def _confirmar_importacao(self) -> None:
         LOGGER.info("   [7] Confirmando importação...")
