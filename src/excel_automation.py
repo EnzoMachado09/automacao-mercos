@@ -202,10 +202,15 @@ class ExcelAutomation:
                     continue
                 texto = str(val).strip().lower()
 
-                if texto == "pessoa" and cliente is None:
-                    vizinho = sheet.cell(row=row, column=col + 1).value
-                    if vizinho:
-                        cliente = str(vizinho).strip()
+                if cliente is None:
+                    if texto == "pessoa":
+                        # Nome na coluna vizinha (layout padrão)
+                        vizinho = sheet.cell(row=row, column=col + 1).value
+                        if vizinho:
+                            cliente = str(vizinho).strip()
+                    elif texto.startswith("pessoa "):
+                        # Nome embutido na mesma célula: "Pessoa ALTMAYER..."
+                        cliente = str(val).strip()[len("Pessoa "):].strip()
 
                 if texto == "data" and data_pedido is None:
                     vizinho = sheet.cell(row=row, column=col + 1).value
