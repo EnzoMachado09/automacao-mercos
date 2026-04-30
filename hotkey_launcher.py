@@ -11,6 +11,7 @@ import threading
 from pathlib import Path
 from tkinter import Tk, Label, Button, Frame, Text, Scrollbar, Entry, StringVar, Radiobutton
 from tkinter import font as tkFont
+from tkinter import ttk
 
 try:
     import keyboard
@@ -26,7 +27,7 @@ class HotKeyLauncher:
         self.is_running = False
 
         self.root = Tk()
-        self.root.title("Automacao Mercos - Hotkey Launcher")
+        self.root.title("Automacoes - Launcher")
         self.root.geometry("700x600")
         self.root.resizable(True, True)
 
@@ -47,12 +48,34 @@ class HotKeyLauncher:
 
         title_label = Label(
             main_frame,
-            text="Automacao Mercos",
+            text="Automacoes - Launcher",
             font=title_font,
             bg="#f0f0f0",
             fg="#333333",
         )
-        title_label.pack(pady=(10, 10))
+        title_label.pack(pady=(10, 5))
+
+        # Seleção de automação — adicionar nova pasta em automacoes/ para aparecer aqui
+        automacao_frame = Frame(main_frame, bg="#f0f0f0")
+        automacao_frame.pack(fill="x", pady=(0, 8))
+
+        Label(automacao_frame, text="Automação:", font=info_font, bg="#f0f0f0", fg="#333333").pack(side="left", padx=(0, 8))
+
+        automacoes_dir = Path(__file__).parent / "automacoes"
+        automacao_opcoes = sorted(
+            p.name for p in automacoes_dir.iterdir() if p.is_dir() and not p.name.startswith("_")
+        ) if automacoes_dir.exists() else ["mercos"]
+
+        self.automacao_selecionada = StringVar(value=automacao_opcoes[0] if automacao_opcoes else "mercos")
+        self.automacao_combo = ttk.Combobox(
+            automacao_frame,
+            textvariable=self.automacao_selecionada,
+            values=automacao_opcoes,
+            state="readonly",
+            width=20,
+            font=info_font,
+        )
+        self.automacao_combo.pack(side="left")
 
         self.status_label = Label(
             main_frame,
@@ -271,6 +294,7 @@ class HotKeyLauncher:
         self.rb2.config(state="disabled")
         self.rb3.config(state="disabled")
         self.max_orders_entry.config(state="disabled")
+        self.automacao_combo.config(state="disabled")
         self.root.update()
 
     def _set_idle_ui(self):
@@ -280,21 +304,26 @@ class HotKeyLauncher:
         self.rb2.config(state="normal")
         self.rb3.config(state="normal")
         self.max_orders_entry.config(state="normal")
+        self.automacao_combo.config(state="readonly")
         self.root.update()
 
     def _build_command(self, etapa: str):
-        python_exe = Path(__file__).parent / ".venv" / "Scripts" / "python.exe"
+        root = Path(__file__).parent
+        python_exe = root / ".venv" / "Scripts" / "python.exe"
         if not python_exe.exists():
             raise FileNotFoundError(f"Python nao encontrado em: {python_exe}")
 
+        automacao = self.automacao_selecionada.get()
+        automacao_dir = root / "automacoes" / automacao
+
         if etapa == "etapa1":
-            output_dir = Path(__file__).parent / "out"
-            output_dir.mkdir(exist_ok=True)
+            output_dir = automacao_dir / "out"
+            output_dir.mkdir(parents=True, exist_ok=True)
             max_orders_val = int(self.max_orders.get())
             return [
                 str(python_exe),
                 "-m",
-                "src.main",
+                f"automacoes.{automacao}.src.main",
                 "--output-dir",
                 str(output_dir),
                 "--max-orders",
@@ -302,9 +331,9 @@ class HotKeyLauncher:
             ]
 
         if etapa == "etapa2":
-            return [str(python_exe), "main_etapa2.py"]
+            return [str(python_exe), str(automacao_dir / "main_etapa2.py")]
 
-        return [str(python_exe), "main_etapa3.py"]
+        return [str(python_exe), str(automacao_dir / "main_etapa3.py")]
 
     def _run_selected_stage(self, etapa: str):
         try:

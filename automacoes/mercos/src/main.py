@@ -6,13 +6,13 @@ import logging
 import sys
 
 from .automation import MercosAutomation, load_automation_config
-from .config import default_config_path
 
 
 def build_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Automacao de exportacao de pedidos Mercos para PDF")
     parser.add_argument("--output-dir", required=True, help="Pasta de saida dos PDFs")
-    parser.add_argument("--config", default=str(default_config_path()), help="Arquivo JSON de configuracao")
+    _default_config = str(Path(__file__).parent.parent / "automation_config.json")
+    parser.add_argument("--config", default=_default_config, help="Arquivo JSON de configuracao")
     parser.add_argument("--max-orders", type=int, default=None, help="Limite opcional de pedidos nesta execucao")
     parser.add_argument("--log-level", default="INFO", help="Nivel de log")
     return parser
