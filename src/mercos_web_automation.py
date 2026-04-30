@@ -295,12 +295,9 @@ class MercosWebAutomation:
         campo.click()
         campo.press_sequentially(self.config.condicao_pagamento, delay=50)
         self._page.wait_for_timeout(1500)
-        # Tab confirma o autocomplete sem submeter o form (Enter fecha o modal prematuramente)
-        campo.press("Tab")
-        self._page.wait_for_timeout(300)
-        # force=True ignora visibilidade — botão pode estar abaixo do scroll do modal
-        self._page.locator(_Sel.BTN_SALVAR_DETALHES).first.click(force=True)
-        self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=8000)
+        # Enter fecha o modal automaticamente — não precisa clicar em "Salvar detalhes"
+        campo.press("Enter")
+        self._page.wait_for_timeout(1000)
 
     def _gerar_pedido(self) -> None:
         LOGGER.info("   [11] Gerando pedido...")
