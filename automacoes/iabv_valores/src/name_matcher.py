@@ -69,6 +69,24 @@ def construir_lookup(ws) -> list[EntradaCliente]:
     return entradas
 
 
+_TOKENS_GENERICOS = {
+    "LTDA", "ME", "SA", "SS", "EIRELI", "EPP", "DE", "DO", "DA", "DOS", "DAS",
+    "E", "EM", "COM", "O", "A", "OS", "AS",
+}
+
+
+def _compartilha_token_distintivo(nome1: str, nome2: str) -> bool:
+    """
+    Garante que os dois nomes compartilham ao menos um token não-genérico.
+    Evita fuzzy matches como TORKER -> WIEBBELLING por terem
+    'DISTRIBUIDORA DE PECAS AUTOMOTIVAS LTDA' em comum.
+    """
+    def tokens(n: str) -> set[str]:
+        return {t for t in n.split() if t not in _TOKENS_GENERICOS}
+
+    return bool(tokens(nome1) & tokens(nome2))
+
+
 def _contem_como_palavra(curto: str, longo: str) -> bool:
     """Verifica se 'curto' aparece como sequência completa de tokens em 'longo'."""
     tokens_curto = curto.split()
@@ -123,7 +141,11 @@ def encontrar_match(
                 melhor_ratio = ratio
                 melhor_entrada = entrada
 
-    if melhor_entrada is not None and melhor_ratio >= limiar_fuzzy:
+    if (
+        melhor_entrada is not None
+        and melhor_ratio >= limiar_fuzzy
+        and _compartilha_token_distintivo(nome_pdf_norm, melhor_entrada.nome_norm)
+    ):
         return ResultadoMatch(melhor_entrada, nome_pdf_norm, "fuzzy", round(melhor_ratio, 3))
 
     return None

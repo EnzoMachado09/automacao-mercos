@@ -91,10 +91,10 @@ def executar(config: Config) -> ResumoExecucao:
         totais[match.entrada.linha] += pedido.valor
         detalhes_match.append((pedido, match))
 
-        tipo_icon = {"exato": "✓", "alias": "✓", "substring": "~", "fuzzy": "⚠"}.get(match.tipo, "?")
+        tipo_icon = {"exato": "OK", "alias": "OK", "substring": "~", "fuzzy": "(!)"}.get(match.tipo, "?")
         LOGGER.info(
             f"  {tipo_icon} [{match.tipo}] {pedido.nome_cliente_raw!r}"
-            f" → {match.entrada.nome_original!r}"
+            f" -> {match.entrada.nome_original!r}"
             f" | R$ {pedido.valor:,.2f}"
             f" (score={match.score:.2f})"
         )

@@ -36,6 +36,25 @@ def _strip_cnpj_prefix(nome: str) -> str:
     return _CNPJ_PREFIX.sub("", nome).strip()
 
 
+def _deduplicar_nome(nome: str) -> str:
+    """
+    Remove a parte repetida que o pdfplumber extrai quando o PDF tem
+    duas colunas na linha "Pessoa" (nome completo + fantasia).
+    Ex: 'MAICON MONTEMEZZO MAICON MONTEMEZZO' -> 'MAICON MONTEMEZZO'
+    Ex: 'POSTO DE MOLAS ZARICHTA LTDA POSTO DE MOLAS ZARIC' -> 'POSTO DE MOLAS ZARICHTA LTDA'
+    Estratégia: se o primeiro token aparecer novamente mais à frente,
+    trunca ali — esse ponto marca o início da coluna da direita.
+    """
+    words = nome.split()
+    if len(words) < 2:
+        return nome
+    primeiro = words[0]
+    for i in range(1, len(words)):
+        if words[i] == primeiro:
+            return " ".join(words[:i]).strip()
+    return nome
+
+
 def _parse_br_float(texto: str) -> float | None:
     """Converte '2.502,35' → 2502.35. Retorna None se não conseguir."""
     texto = texto.strip()
@@ -138,7 +157,7 @@ def parsear_pdf(pdf_path: Path) -> PedidoInfo | None:
                 return None
 
             numero = _extrair_numero_pedido(texto_pagina1)
-            nome_sem_prefixo = _strip_cnpj_prefix(nome_raw)
+            nome_sem_prefixo = _deduplicar_nome(_strip_cnpj_prefix(nome_raw))
 
             return PedidoInfo(
                 pdf_path=pdf_path,

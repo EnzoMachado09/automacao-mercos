@@ -64,6 +64,11 @@ def _carregar_config() -> Config:
 
 
 def main() -> int:
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
     _configurar_logging()
     logger = logging.getLogger(__name__)
 
@@ -107,8 +112,8 @@ def main() -> int:
     logger.info(f"  Matches exatos:        {resumo.matches_exatos}")
     logger.info(f"  Matches por alias:     {resumo.matches_alias}")
     logger.info(f"  Matches por substring: {resumo.matches_substring}")
-    logger.info(f"  Matches fuzzy (⚠):    {resumo.matches_fuzzy}")
-    logger.info(f"  Não identificados (✗): {len(resumo.nao_identificados)}")
+    logger.info(f"  Matches fuzzy (!):     {resumo.matches_fuzzy}")
+    logger.info(f"  Nao identificados (X): {len(resumo.nao_identificados)}")
 
     if resumo.nao_identificados:
         nao_id_path = LOG_PATH.parent / "nao_identificados.txt"
@@ -119,7 +124,7 @@ def main() -> int:
         logger.warning("  Verifique e adicione aliases na coluna G da planilha.")
 
     if resumo.matches_fuzzy > 0:
-        logger.warning("  ⚠ Verifique os matches fuzzy no log — podem ser incorretos.")
+        logger.warning("  (!) Verifique os matches fuzzy no log - podem ser incorretos.")
 
     logger.info("=" * 60)
 
