@@ -286,8 +286,8 @@ class MercosWebAutomation:
     def _terminar_adicao_produtos(self) -> None:
         LOGGER.info("   [9] Finalizando adição de produtos...")
         self._page.locator(_Sel.BTN_TERMINEI).click()
-        # Aguarda modal de detalhes abrir
-        self._page.wait_for_selector('text=Detalhes do pedido', timeout=8000)
+        # Aguarda o modal abrir (data-testid="modal" é mais específico que o texto)
+        self._page.wait_for_selector('[data-testid="modal"]', timeout=8000)
 
     def _preencher_detalhes_iniciais(self) -> None:
         LOGGER.info(f"   [10] Preenchendo condição de pagamento: {self.config.condicao_pagamento}...")
@@ -311,14 +311,14 @@ class MercosWebAutomation:
         btn_alterar = self._page.locator(_Sel.BTN_ALTERAR_DETALHES).first
         btn_alterar.scroll_into_view_if_needed()
         btn_alterar.click()
-        self._page.wait_for_selector('text=Detalhes do pedido', timeout=5000)
+        self._page.wait_for_selector('[data-testid="modal"]', timeout=5000)
         campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
         campo_data.fill("")
         campo_data.type(data)
         btn = self._page.locator(_Sel.BTN_SALVAR_DETALHES).first
         btn.scroll_into_view_if_needed()
-        btn.click()
-        self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
+        btn.click(force=True)
+        self._page.wait_for_selector('[data-testid="modal"]', state="hidden", timeout=8000)
 
     def _ir_para_lista_pedidos(self) -> None:
         # Fecha qualquer modal aberto que bloqueie cliques na sidebar
