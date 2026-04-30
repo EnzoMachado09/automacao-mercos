@@ -1,0 +1,5 @@
+{
+  "COMENTÁRIO": "Mapeamento manual de nomes de clientes. Chave = nome no pedido Excel (MAIÚSCULAS). Valor = nome exato ou parcial como está no Mercos.",
+  "EXEMPLO DISTRIBUIDORA LTDA": "EXEMPLO DISTRIB",
+  "OUTRO CLIENTE EIRELLI-ME": "OUTRO CLIENTE"
+}
