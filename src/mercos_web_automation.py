@@ -310,7 +310,9 @@ class MercosWebAutomation:
 
     def _alterar_data(self, data: str) -> None:
         LOGGER.info(f"   [12] Alterando data para: {data}...")
-        self._page.locator(_Sel.BTN_ALTERAR_DETALHES).click()
+        btn_alterar = self._page.locator(_Sel.BTN_ALTERAR_DETALHES).first
+        btn_alterar.scroll_into_view_if_needed()
+        btn_alterar.click()
         self._page.wait_for_selector('text=Detalhes do pedido', timeout=5000)
         campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
         campo_data.fill("")
