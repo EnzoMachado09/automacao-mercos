@@ -61,7 +61,7 @@ class _Sel:
     BTN_ADICIONAR_PROD   = 'text=Adicionar os produtos da planilha'
     NOTIF_IMPORTADOS     = 'text=produtos importados'
     BTN_TERMINEI         = 'text=Terminei de adicionar os produtos'
-    CAMPO_COND_PGTO      = 'input[placeholder="Obrigatório"]'
+    CAMPO_COND_PGTO      = 'input[placeholder="obrigatório"]'
     BTN_SALVAR_DETALHES  = 'text=Salvar detalhes'
     BTN_GERAR_PEDIDO     = 'text=Gerar pedido'
     BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
@@ -292,7 +292,10 @@ class MercosWebAutomation:
     def _preencher_detalhes_iniciais(self) -> None:
         LOGGER.info(f"   [10] Preenchendo condição de pagamento: {self.config.condicao_pagamento}...")
         campo = self._page.locator(_Sel.CAMPO_COND_PGTO).first
-        campo.fill(self.config.condicao_pagamento)
+        campo.click()
+        campo.press_sequentially(self.config.condicao_pagamento, delay=50)
+        self._page.wait_for_timeout(1500)
+        campo.press("Enter")
         self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
         self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
 
