@@ -64,6 +64,7 @@ class Etapa3Config:
 @dataclass
 class MetadadosPedido:
     cliente: str
+    cnpj: str               # CNPJ/CPF do cliente (usado na busca no Mercos)
     data_pedido: str        # formato DD/MM/AAAA
     arquivo_xlsx: Path      # caminho absoluto do M.xlsx
     nome_arquivo: str = ""  # nome do arquivo para log
@@ -124,7 +125,7 @@ class MercosWebAutomation:
                 self.pedido_count += 1
                 LOGGER.info(f"\n{'='*70}")
                 LOGGER.info(f"📋 PEDIDO {self.pedido_count}/{len(pedidos)}: {pedido.nome_arquivo}")
-                LOGGER.info(f"   Cliente: {pedido.cliente} | Data: {pedido.data_pedido}")
+                LOGGER.info(f"   Cliente: {pedido.cliente} | CNPJ: {pedido.cnpj} | Data: {pedido.data_pedido}")
                 LOGGER.info(f"{'='*70}")
                 try:
                     self._processar_pedido(pedido)
@@ -158,6 +159,7 @@ class MercosWebAutomation:
                 dados = json.loads(json_path.read_text(encoding="utf-8"))
                 pedidos.append(MetadadosPedido(
                     cliente=dados.get("cliente") or "",
+                    cnpj=dados.get("cnpj") or "",
                     data_pedido=dados.get("data_pedido") or "",
                     arquivo_xlsx=xlsx_path.resolve(),
                     nome_arquivo=xlsx_path.name,
@@ -221,7 +223,7 @@ class MercosWebAutomation:
 
     def _processar_pedido(self, pedido: MetadadosPedido) -> None:
         self._navegar_para_novo_pedido()
-        self._preencher_cliente(pedido.cliente)
+        self._preencher_cliente(pedido.cnpj or pedido.cliente)
         self._selecionar_representada()
         self._abrir_modal_planilha()
         self._fazer_upload_xlsx(pedido.arquivo_xlsx)
@@ -253,11 +255,8 @@ class MercosWebAutomation:
         self._page.wait_for_selector(_Sel.CAMPO_CLIENTE, timeout=15000)
         self._fechar_popups()
 
-    def _preencher_cliente(self, nome: str) -> None:
-        LOGGER.info(f"   [2] Preenchendo cliente: {nome}...")
-        busca = _preparar_busca_cliente(nome)
-        if busca != nome:
-            LOGGER.info(f"      → buscando por: '{busca}'")
+    def _preencher_cliente(self, busca: str) -> None:
+        LOGGER.info(f"   [2] Preenchendo cliente: {busca}...")
         campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
         campo.click()
         campo.press_sequentially(busca, delay=50)
