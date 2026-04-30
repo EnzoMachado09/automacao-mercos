@@ -296,13 +296,15 @@ class MercosWebAutomation:
         campo.press_sequentially(self.config.condicao_pagamento, delay=50)
         self._page.wait_for_timeout(1500)
         campo.press("Enter")
-        self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
+        btn = self._page.locator(_Sel.BTN_SALVAR_DETALHES).first
+        btn.scroll_into_view_if_needed()
+        btn.click()
         self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
 
     def _gerar_pedido(self) -> None:
         LOGGER.info("   [11] Gerando pedido...")
-        # O botão pode ser "Gerar pedido" (antes) ou "Faturar pedido" (depois)
         btn = self._page.locator(_Sel.BTN_GERAR_PEDIDO).first
+        btn.scroll_into_view_if_needed()
         btn.click()
         self._page.wait_for_load_state("domcontentloaded")
 
@@ -313,7 +315,9 @@ class MercosWebAutomation:
         campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
         campo_data.fill("")
         campo_data.type(data)
-        self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
+        btn = self._page.locator(_Sel.BTN_SALVAR_DETALHES).first
+        btn.scroll_into_view_if_needed()
+        btn.click()
         self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=5000)
 
     def _ir_para_lista_pedidos(self) -> None:
