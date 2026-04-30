@@ -91,10 +91,6 @@ class _Sel:
     POPUP_FECHAR         = 'button:has-text("×"), button.close, [aria-label="Close"], button:has-text("Fechar")'
 
 
-_SEM_MATCH_JSON = Path(__file__).parent.parent / "clientes_sem_match.json"
-_CLIENTES_MAP_JSON = Path(__file__).parent.parent / "clientes_map.json"
-
-
 class MercosWebAutomation:
     """Automação web do Mercos usando Playwright."""
 
@@ -106,42 +102,6 @@ class MercosWebAutomation:
         self._pw: Optional[Playwright] = None
         self.pedido_count = 0
         self.falhas = 0
-        self._clientes_map: dict[str, str] = self._carregar_clientes_map()
-
-    @staticmethod
-    def _carregar_clientes_map() -> dict[str, str]:
-        """Carrega mapeamentos manuais de nomes de clientes (clientes_map.json)."""
-        if not _CLIENTES_MAP_JSON.exists():
-            return {}
-        try:
-            dados = json.loads(_CLIENTES_MAP_JSON.read_text(encoding="utf-8"))
-            if isinstance(dados, dict):
-                return {k.strip().upper(): v.strip() for k, v in dados.items()}
-        except Exception as e:
-            LOGGER.warning(f"⚠️  Erro ao ler clientes_map.json: {e}")
-        return {}
-
-    def _registrar_sem_match(self, nome_original: str, nome_buscado: str) -> None:
-        """Adiciona cliente sem match ao clientes_sem_match.json."""
-        registros: list[dict] = []
-        if _SEM_MATCH_JSON.exists():
-            try:
-                registros = json.loads(_SEM_MATCH_JSON.read_text(encoding="utf-8"))
-            except Exception:
-                registros = []
-
-        # Evita duplicatas pelo nome original
-        if not any(r.get("nome_original") == nome_original for r in registros):
-            registros.append({
-                "nome_original": nome_original,
-                "nome_buscado": nome_buscado,
-                "sugestao_mercos": "",
-            })
-            _SEM_MATCH_JSON.write_text(
-                json.dumps(registros, ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            LOGGER.info(f"      📝 Cliente registrado em clientes_sem_match.json: {nome_original}")
 
     def run(self) -> None:
         LOGGER.info("=" * 70)
@@ -295,38 +255,14 @@ class MercosWebAutomation:
 
     def _preencher_cliente(self, nome: str) -> None:
         LOGGER.info(f"   [2] Preenchendo cliente: {nome}...")
-
-        # Verifica mapa manual primeiro
-        nome_upper = nome.strip().upper()
-        if nome_upper in self._clientes_map:
-            busca = self._clientes_map[nome_upper]
-            LOGGER.info(f"      → mapa manual: '{busca}'")
-        else:
-            busca = _preparar_busca_cliente(nome)
-            if busca != nome:
-                LOGGER.info(f"      → buscando por: '{busca}'")
-
+        busca = _preparar_busca_cliente(nome)
+        if busca != nome:
+            LOGGER.info(f"      → buscando por: '{busca}'")
         campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
         campo.click()
         campo.press_sequentially(busca, delay=50)
         self._page.wait_for_timeout(2000)
         campo.press("Enter")
-        self._page.wait_for_timeout(1000)
-
-        # Verifica se abriu modal "Cadastrar novo cliente" (cliente não encontrado)
-        modal_cadastro = self._page.locator('text=Cadastrar novo cliente')
-        try:
-            modal_cadastro.wait_for(state="visible", timeout=1500)
-            # Modal apareceu — cliente não existe no Mercos
-            LOGGER.warning(f"      ⚠️  Cliente não encontrado no Mercos: '{busca}'")
-            self._page.keyboard.press("Escape")
-            self._page.wait_for_timeout(500)
-            self._registrar_sem_match(nome, busca)
-            raise ValueError(f"Cliente não encontrado no Mercos: '{nome}' (buscado como '{busca}')")
-        except ValueError:
-            raise
-        except Exception:
-            pass  # Timeout = modal não apareceu = cliente selecionado com sucesso
 
     def _selecionar_representada(self) -> None:
         LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
