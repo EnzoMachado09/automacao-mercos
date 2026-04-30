@@ -66,16 +66,43 @@ def _parse_br_float(texto: str) -> float | None:
         return None
 
 
-def _extrair_pessoa(texto: str) -> str | None:
-    """Extrai o nome do cliente do bloco 'Pessoa' no texto do PDF."""
-    for linha in texto.splitlines():
-        linha = linha.strip()
-        if linha.lower().startswith("pessoa"):
-            # "Pessoa  52.949.544 MAICON MONTEMEZZO"
-            partes = linha.split(None, 1)
-            if len(partes) >= 2:
-                return partes[1].strip()
-    return None
+_COLUNA_GAP_MIN = 30  # pontos de espaço entre colunas do PDF
+
+
+def _extrair_pessoa(pagina) -> str | None:
+    """
+    Extrai o nome do cliente da linha 'Pessoa' usando coordenadas x/y.
+    Detecta a separação entre colunas (nome legal | nome fantasia) pelo maior gap
+    horizontal entre palavras consecutivas, e retorna apenas a coluna esquerda.
+    """
+    words = pagina.extract_words()
+    pessoa_word = next(
+        (w for w in words if w["text"].strip().lower() == "pessoa"), None
+    )
+    if not pessoa_word:
+        return None
+
+    pessoa_y = pessoa_word["top"]
+    linha_words = sorted(
+        [w for w in words if abs(w["top"] - pessoa_y) < 6 and w["text"].strip().lower() != "pessoa"],
+        key=lambda w: w["x0"],
+    )
+    if not linha_words:
+        return None
+
+    # Detecta maior gap entre palavras consecutivas
+    max_gap = 0.0
+    split_idx = len(linha_words)
+    for i in range(1, len(linha_words)):
+        gap = linha_words[i]["x0"] - linha_words[i - 1]["x1"]
+        if gap > max_gap:
+            max_gap = gap
+            split_idx = i
+
+    if max_gap > _COLUNA_GAP_MIN:
+        linha_words = linha_words[:split_idx]
+
+    return " ".join(w["text"] for w in linha_words)
 
 
 def _extrair_total_ac(paginas: list) -> float | None:
@@ -147,8 +174,8 @@ def parsear_pdf(pdf_path: Path) -> PedidoInfo | None:
             if not pdf.pages:
                 return None
 
-            texto_pagina1 = pdf.pages[0].extract_text() or ""
-            nome_raw = _extrair_pessoa(texto_pagina1)
+            pagina1 = pdf.pages[0]
+            nome_raw = _extrair_pessoa(pagina1)
             if not nome_raw:
                 return None
 
@@ -156,8 +183,9 @@ def parsear_pdf(pdf_path: Path) -> PedidoInfo | None:
             if total is None:
                 return None
 
+            texto_pagina1 = pagina1.extract_text() or ""
             numero = _extrair_numero_pedido(texto_pagina1)
-            nome_sem_prefixo = _deduplicar_nome(_strip_cnpj_prefix(nome_raw))
+            nome_sem_prefixo = _strip_cnpj_prefix(nome_raw)
 
             return PedidoInfo(
                 pdf_path=pdf_path,
