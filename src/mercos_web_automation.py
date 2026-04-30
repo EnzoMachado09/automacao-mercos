@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -26,6 +27,25 @@ from typing import Optional
 from playwright.sync_api import sync_playwright, Page, Browser, Playwright
 
 LOGGER = logging.getLogger(__name__)
+
+# Sufixos jurídicos removidos antes da busca no autocomplete do Mercos
+_RE_SUFIXOS = re.compile(
+    r'\s*[-–]?\s*\b(LTDA\.?|EIRELI\.?|EIRELLI|EPP|S\.?A\.?|CIA\.?|INC\.?|EIRL\.?|ME)\b.*$',
+    flags=re.IGNORECASE,
+)
+
+
+def _preparar_busca_cliente(nome: str) -> str:
+    """Remove sufixos jurídicos e limita a 4 palavras para busca no autocomplete.
+
+    Exemplos:
+      "WIEBBELLING DISTRIBUIDORA DE PECAS AUTOMOTIVAS LTDA - EPP"
+        → "WIEBBELLING DISTRIBUIDORA DE PECAS"
+      "BRUNO AUGUSTO WEHRLE LUDWIG EIRELLI-ME"
+        → "BRUNO AUGUSTO WEHRLE LUDWIG"
+    """
+    limpo = _RE_SUFIXOS.sub("", nome).strip() or nome
+    return " ".join(limpo.split()[:4])
 
 
 @dataclass
@@ -235,14 +255,13 @@ class MercosWebAutomation:
 
     def _preencher_cliente(self, nome: str) -> None:
         LOGGER.info(f"   [2] Preenchendo cliente: {nome}...")
+        busca = _preparar_busca_cliente(nome)
+        if busca != nome:
+            LOGGER.info(f"      → buscando por: '{busca}'")
         campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
         campo.click()
-        # press_sequentially dispara eventos de teclado reais, necessários para
-        # o autocomplete do Mercos reagir (fill() define o valor via JS sem eventos)
-        campo.press_sequentially(nome, delay=50)
-        # Aguarda o servidor responder com sugestões
+        campo.press_sequentially(busca, delay=50)
         self._page.wait_for_timeout(2000)
-        # Primeiro resultado já fica selecionado automaticamente, basta confirmar
         campo.press("Enter")
 
     def _selecionar_representada(self) -> None:
