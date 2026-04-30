@@ -1,0 +1,11 @@
+{
+    "nome": "IABV Valores",
+    "etapas": [
+        {
+            "id": "etapa1",
+            "label": "Atualizar planilha de valores",
+            "mode": "script",
+            "entry": "main.py"
+        }
+    ]
+}

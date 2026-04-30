@@ -1,0 +1,24 @@
+{
+    "nome": "Mercos",
+    "etapas": [
+        {
+            "id": "etapa1",
+            "label": "Exportar pedidos (PDF)",
+            "mode": "module",
+            "entry": "src.main",
+            "needs_max_orders": true
+        },
+        {
+            "id": "etapa2",
+            "label": "Extrair dados Excel",
+            "mode": "script",
+            "entry": "main_etapa2.py"
+        },
+        {
+            "id": "etapa3",
+            "label": "Criar pedidos no Mercos Web",
+            "mode": "script",
+            "entry": "main_etapa3.py"
+        }
+    ]
+}

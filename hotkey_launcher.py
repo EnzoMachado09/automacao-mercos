@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
-Hotkey Launcher para Automação Mercos
+Hotkey Launcher para Automações
 Tecla F6: iniciar/parar etapa selecionada
 Tecla ESC: fechar a aplicação
+
+Cada automação em automacoes/<nome>/manifest.json define suas etapas.
 """
 
+import json
 import subprocess
 import sys
 import threading
@@ -20,15 +23,49 @@ except ImportError:
     print("Execute: python -m pip install keyboard")
     sys.exit(1)
 
+ROOT_DIR = Path(__file__).parent
+AUTOMACOES_DIR = ROOT_DIR / "automacoes"
+
+
+def _listar_automacoes() -> list[str]:
+    if not AUTOMACOES_DIR.exists():
+        return []
+    return sorted(
+        p.name for p in AUTOMACOES_DIR.iterdir()
+        if p.is_dir() and not p.name.startswith("_") and (p / "manifest.json").exists()
+    )
+
+
+def _carregar_manifest(automacao: str) -> list[dict]:
+    manifest_path = AUTOMACOES_DIR / automacao / "manifest.json"
+    if not manifest_path.exists():
+        return []
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return data.get("etapas", [])
+    except Exception:
+        return []
+
+
+def _nome_display(automacao: str) -> str:
+    manifest_path = AUTOMACOES_DIR / automacao / "manifest.json"
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return data.get("nome", automacao)
+    except Exception:
+        return automacao
+
 
 class HotKeyLauncher:
     def __init__(self):
         self.process = None
         self.is_running = False
+        self.radio_buttons: list[Radiobutton] = []
+        self.etapas_manifest: list[dict] = []
 
         self.root = Tk()
         self.root.title("Automacoes - Launcher")
-        self.root.geometry("700x600")
+        self.root.geometry("700x620")
         self.root.resizable(True, True)
 
         self.etapa_selecionada = StringVar(value="etapa1")
@@ -41,156 +78,89 @@ class HotKeyLauncher:
 
         title_font = tkFont.Font(family="Arial", size=14, weight="bold")
         status_font = tkFont.Font(family="Arial", size=12)
-        info_font = tkFont.Font(family="Courier", size=9)
+        self.info_font = tkFont.Font(family="Courier", size=9)
 
         main_frame = Frame(self.root, bg="#f0f0f0")
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        title_label = Label(
-            main_frame,
-            text="Automacoes - Launcher",
-            font=title_font,
-            bg="#f0f0f0",
-            fg="#333333",
-        )
-        title_label.pack(pady=(10, 5))
+        Label(
+            main_frame, text="Automacoes - Launcher",
+            font=title_font, bg="#f0f0f0", fg="#333333",
+        ).pack(pady=(10, 5))
 
-        # Seleção de automação — adicionar nova pasta em automacoes/ para aparecer aqui
+        # --- Seleção de automação ---
         automacao_frame = Frame(main_frame, bg="#f0f0f0")
         automacao_frame.pack(fill="x", pady=(0, 8))
 
-        Label(automacao_frame, text="Automação:", font=info_font, bg="#f0f0f0", fg="#333333").pack(side="left", padx=(0, 8))
+        Label(automacao_frame, text="Automacao:", font=self.info_font, bg="#f0f0f0", fg="#333333").pack(side="left", padx=(0, 8))
 
-        automacoes_dir = Path(__file__).parent / "automacoes"
-        automacao_opcoes = sorted(
-            p.name for p in automacoes_dir.iterdir() if p.is_dir() and not p.name.startswith("_")
-        ) if automacoes_dir.exists() else ["mercos"]
+        automacoes = _listar_automacoes()
+        nomes_display = [_nome_display(a) for a in automacoes]
+        self._automacoes_ids = automacoes  # ids internos (nome de pasta)
+        self._automacoes_nomes = nomes_display
 
-        self.automacao_selecionada = StringVar(value=automacao_opcoes[0] if automacao_opcoes else "mercos")
+        self.automacao_selecionada = StringVar(value=nomes_display[0] if nomes_display else "")
         self.automacao_combo = ttk.Combobox(
             automacao_frame,
             textvariable=self.automacao_selecionada,
-            values=automacao_opcoes,
+            values=nomes_display,
             state="readonly",
-            width=20,
-            font=info_font,
+            width=22,
+            font=self.info_font,
         )
         self.automacao_combo.pack(side="left")
+        self.automacao_combo.bind("<<ComboboxSelected>>", lambda _: self._reconstruir_etapas())
 
+        # --- Status ---
         self.status_label = Label(
-            main_frame,
-            text="PARADA",
-            font=status_font,
-            bg="#ffcccc",
-            fg="#990000",
-            relief="solid",
-            borderwidth=2,
-            padx=20,
-            pady=10,
+            main_frame, text="PARADA", font=status_font,
+            bg="#ffcccc", fg="#990000", relief="solid", borderwidth=2, padx=20, pady=10,
         )
         self.status_label.pack(fill="x", pady=(0, 10))
 
-        info_frame = Frame(main_frame, bg="#f0f0f0")
-        info_frame.pack(fill="x", pady=(0, 10))
-
-        info1 = Label(
-            info_frame,
+        Label(
+            main_frame,
             text="F6: Iniciar/Parar etapa selecionada | ESC: Fechar",
-            font=info_font,
-            bg="#f0f0f0",
-            fg="#333333",
-        )
-        info1.pack(anchor="w")
+            font=self.info_font, bg="#f0f0f0", fg="#333333",
+        ).pack(anchor="w", pady=(0, 8))
 
-        etapa_frame = Frame(main_frame, bg="#fff3e0", relief="solid", borderwidth=1)
-        etapa_frame.pack(fill="x", pady=(0, 10), padx=0)
+        # --- Etapas (dinâmico) ---
+        etapa_outer = Frame(main_frame, bg="#fff3e0", relief="solid", borderwidth=1)
+        etapa_outer.pack(fill="x", pady=(0, 10))
 
-        etapa_label = Label(
-            etapa_frame,
-            text="Selecione a Etapa",
+        Label(
+            etapa_outer, text="Selecione a Etapa",
             font=tkFont.Font(family="Arial", size=10, weight="bold"),
-            bg="#fff3e0",
-            fg="#e65100",
-        )
-        etapa_label.pack(anchor="w", padx=10, pady=(5, 0))
+            bg="#fff3e0", fg="#e65100",
+        ).pack(anchor="w", padx=10, pady=(5, 0))
 
-        etapa_radio_frame = Frame(etapa_frame, bg="#fff3e0")
-        etapa_radio_frame.pack(fill="x", padx=10, pady=5)
+        self.etapa_radio_frame = Frame(etapa_outer, bg="#fff3e0")
+        self.etapa_radio_frame.pack(fill="x", padx=10, pady=5)
 
-        self.rb1 = Radiobutton(
-            etapa_radio_frame,
-            text="Etapa 1: Exportar pedidos (PDF)",
-            variable=self.etapa_selecionada,
-            value="etapa1",
-            bg="#fff3e0",
-            fg="#333333",
-            font=info_font,
-        )
-        self.rb1.pack(anchor="w")
+        # --- Campo max orders (visível só quando necessário) ---
+        self.config_frame = Frame(main_frame, bg="#e8f5e9", relief="solid", borderwidth=1)
+        # empacotado/desempacotado dinamicamente em _reconstruir_etapas
 
-        self.rb2 = Radiobutton(
-            etapa_radio_frame,
-            text="Etapa 2: Extrair dados Excel (openpyxl)",
-            variable=self.etapa_selecionada,
-            value="etapa2",
-            bg="#fff3e0",
-            fg="#333333",
-            font=info_font,
-        )
-        self.rb2.pack(anchor="w")
-
-        self.rb3 = Radiobutton(
-            etapa_radio_frame,
-            text="Etapa 3: Criar pedidos no Mercos Web",
-            variable=self.etapa_selecionada,
-            value="etapa3",
-            bg="#fff3e0",
-            fg="#333333",
-            font=info_font,
-        )
-        self.rb3.pack(anchor="w")
-
-        config_frame = Frame(main_frame, bg="#e8f5e9", relief="solid", borderwidth=1)
-        config_frame.pack(fill="x", pady=(0, 10), padx=0)
-
-        config_label = Label(
-            config_frame,
-            text="Configuracao (Etapa 1)",
+        Label(
+            self.config_frame, text="Configuracao (Etapa 1)",
             font=tkFont.Font(family="Arial", size=9, weight="bold"),
-            bg="#e8f5e9",
-            fg="#1b5e20",
-        )
-        config_label.pack(anchor="w", padx=10, pady=(5, 0))
+            bg="#e8f5e9", fg="#1b5e20",
+        ).pack(anchor="w", padx=10, pady=(5, 0))
 
-        max_orders_frame = Frame(config_frame, bg="#e8f5e9")
-        max_orders_frame.pack(fill="x", padx=10, pady=5)
+        max_frame = Frame(self.config_frame, bg="#e8f5e9")
+        max_frame.pack(fill="x", padx=10, pady=5)
 
-        max_orders_label = Label(
-            max_orders_frame,
-            text="Quantos pedidos processar?",
-            font=info_font,
-            bg="#e8f5e9",
-            fg="#1b5e20",
-        )
-        max_orders_label.pack(side="left", padx=(0, 10))
+        Label(max_frame, text="Quantos pedidos processar?", font=self.info_font, bg="#e8f5e9", fg="#1b5e20").pack(side="left", padx=(0, 10))
 
-        self.max_orders_entry = Entry(
-            max_orders_frame,
-            textvariable=self.max_orders,
-            font=info_font,
-            width=8,
-            justify="center",
-        )
+        self.max_orders_entry = Entry(max_frame, textvariable=self.max_orders, font=self.info_font, width=8, justify="center")
         self.max_orders_entry.pack(side="left")
 
-        log_label = Label(
-            main_frame,
-            text="Saida da automacao:",
+        # --- Log ---
+        Label(
+            main_frame, text="Saida da automacao:",
             font=tkFont.Font(family="Arial", size=10, weight="bold"),
-            bg="#f0f0f0",
-            fg="#333333",
-        )
-        log_label.pack(anchor="w", pady=(5, 0))
+            bg="#f0f0f0", fg="#333333",
+        ).pack(anchor="w", pady=(5, 0))
 
         log_frame = Frame(main_frame, bg="white", relief="solid", borderwidth=1)
         log_frame.pack(fill="both", expand=True, pady=(0, 10))
@@ -199,54 +169,99 @@ class HotKeyLauncher:
         scrollbar.pack(side="right", fill="y")
 
         self.log_text = Text(
-            log_frame,
-            font=info_font,
-            bg="white",
-            fg="#333333",
-            yscrollcommand=scrollbar.set,
-            state="disabled",
-            height=12,
+            log_frame, font=self.info_font, bg="white", fg="#333333",
+            yscrollcommand=scrollbar.set, state="disabled", height=12,
         )
         self.log_text.pack(fill="both", expand=True)
         scrollbar.config(command=self.log_text.yview)
 
+        # --- Botões ---
         button_frame = Frame(main_frame, bg="#f0f0f0")
         button_frame.pack(fill="x")
 
         self.toggle_button = Button(
-            button_frame,
-            text="INICIAR ETAPA SELECIONADA",
+            button_frame, text="INICIAR ETAPA SELECIONADA",
             command=self.toggle_automation,
             font=tkFont.Font(family="Arial", size=11, weight="bold"),
-            bg="#2196F3",
-            fg="white",
-            padx=20,
-            pady=8,
-            relief="raised",
-            borderwidth=2,
+            bg="#2196F3", fg="white", padx=20, pady=8, relief="raised", borderwidth=2,
         )
         self.toggle_button.pack(side="left", expand=True, padx=5)
 
-        close_button = Button(
-            button_frame,
-            text="FECHAR",
-            command=self.close_app,
+        Button(
+            button_frame, text="FECHAR", command=self.close_app,
             font=tkFont.Font(family="Arial", size=11, weight="bold"),
-            bg="#f44336",
-            fg="white",
-            padx=20,
-            pady=8,
-            relief="raised",
-            borderwidth=2,
-        )
-        close_button.pack(side="right", expand=True, padx=5)
+            bg="#f44336", fg="white", padx=20, pady=8, relief="raised", borderwidth=2,
+        ).pack(side="right", expand=True, padx=5)
 
         keyboard.add_hotkey("f6", self.toggle_automation)
         keyboard.add_hotkey("esc", self.close_app)
 
+        # Inicializar etapas da automação padrão
+        self._reconstruir_etapas()
+
         self.log("Launcher iniciado")
-        self.log("F6: Iniciar/Parar etapa selecionada")
-        self.log("ESC: Fechar")
+        self.log("F6: Iniciar/Parar | ESC: Fechar")
+
+    # ------------------------------------------------------------------
+    # Manifest / etapas dinâmicas
+    # ------------------------------------------------------------------
+
+    def _automacao_id(self) -> str:
+        nome_display = self.automacao_selecionada.get()
+        try:
+            idx = self._automacoes_nomes.index(nome_display)
+            return self._automacoes_ids[idx]
+        except (ValueError, IndexError):
+            return nome_display
+
+    def _reconstruir_etapas(self) -> None:
+        automacao = self._automacao_id()
+        self.etapas_manifest = _carregar_manifest(automacao)
+
+        # Remove radio buttons antigos
+        for rb in self.radio_buttons:
+            rb.destroy()
+        self.radio_buttons.clear()
+
+        if not self.etapas_manifest:
+            self.etapas_manifest = [{"id": "etapa1", "label": "Executar", "mode": "script", "entry": "main.py"}]
+
+        # Seleciona primeira etapa por padrão
+        self.etapa_selecionada.set(self.etapas_manifest[0]["id"])
+
+        for etapa in self.etapas_manifest:
+            rb = Radiobutton(
+                self.etapa_radio_frame,
+                text=etapa.get("label", etapa["id"]),
+                variable=self.etapa_selecionada,
+                value=etapa["id"],
+                bg="#fff3e0", fg="#333333",
+                font=self.info_font,
+                command=self._atualizar_config_frame,
+            )
+            rb.pack(anchor="w")
+            self.radio_buttons.append(rb)
+
+        self._atualizar_config_frame()
+
+    def _etapa_atual(self) -> dict | None:
+        etapa_id = self.etapa_selecionada.get()
+        for e in self.etapas_manifest:
+            if e["id"] == etapa_id:
+                return e
+        return None
+
+    def _atualizar_config_frame(self) -> None:
+        etapa = self._etapa_atual()
+        needs_max = etapa.get("needs_max_orders", False) if etapa else False
+        if needs_max:
+            self.config_frame.pack(fill="x", pady=(0, 10), before=self.log_text.master)
+        else:
+            self.config_frame.pack_forget()
+
+    # ------------------------------------------------------------------
+    # Controle de processo
+    # ------------------------------------------------------------------
 
     def log(self, message: str):
         self.log_text.config(state="normal")
@@ -267,12 +282,11 @@ class HotKeyLauncher:
             self.log("Automacao ja em execucao")
             return
 
-        etapa = self.etapa_selecionada.get()
-
-        if etapa == "etapa1":
+        etapa = self._etapa_atual()
+        if etapa and etapa.get("needs_max_orders"):
             try:
-                max_orders_val = int(self.max_orders.get())
-                if max_orders_val <= 0:
+                val = int(self.max_orders.get())
+                if val <= 0:
                     self.log("Erro: max orders deve ser maior que 0")
                     return
             except ValueError:
@@ -280,19 +294,18 @@ class HotKeyLauncher:
                 return
 
         self.is_running = True
-        self._set_running_ui(etapa)
+        self._set_running_ui()
 
-        thread = threading.Thread(target=self._run_selected_stage, args=(etapa,), daemon=True)
+        thread = threading.Thread(target=self._run_selected_stage, daemon=True)
         thread.start()
 
-    def _set_running_ui(self, etapa: str):
-        labels = {"etapa1": "ETAPA 1", "etapa2": "ETAPA 2", "etapa3": "ETAPA 3"}
-        etapa_label = labels.get(etapa, etapa.upper())
-        self.status_label.config(text=f"EXECUTANDO {etapa_label}", bg="#fff3cd", fg="#8a6d3b")
+    def _set_running_ui(self):
+        etapa = self._etapa_atual()
+        label = etapa.get("label", "ETAPA").upper() if etapa else "ETAPA"
+        self.status_label.config(text=f"EXECUTANDO: {label}", bg="#fff3cd", fg="#8a6d3b")
         self.toggle_button.config(text="PARAR", bg="#ff9800")
-        self.rb1.config(state="disabled")
-        self.rb2.config(state="disabled")
-        self.rb3.config(state="disabled")
+        for rb in self.radio_buttons:
+            rb.config(state="disabled")
         self.max_orders_entry.config(state="disabled")
         self.automacao_combo.config(state="disabled")
         self.root.update()
@@ -300,50 +313,46 @@ class HotKeyLauncher:
     def _set_idle_ui(self):
         self.status_label.config(text="PARADA", bg="#ffcccc", fg="#990000")
         self.toggle_button.config(text="INICIAR ETAPA SELECIONADA", bg="#2196F3")
-        self.rb1.config(state="normal")
-        self.rb2.config(state="normal")
-        self.rb3.config(state="normal")
+        for rb in self.radio_buttons:
+            rb.config(state="normal")
         self.max_orders_entry.config(state="normal")
         self.automacao_combo.config(state="readonly")
         self.root.update()
 
-    def _build_command(self, etapa: str):
-        root = Path(__file__).parent
-        python_exe = root / ".venv" / "Scripts" / "python.exe"
+    def _build_command(self) -> list[str]:
+        python_exe = ROOT_DIR / ".venv" / "Scripts" / "python.exe"
         if not python_exe.exists():
             raise FileNotFoundError(f"Python nao encontrado em: {python_exe}")
 
-        automacao = self.automacao_selecionada.get()
-        automacao_dir = root / "automacoes" / automacao
+        automacao = self._automacao_id()
+        automacao_dir = AUTOMACOES_DIR / automacao
+        etapa = self._etapa_atual()
+        if not etapa:
+            raise ValueError("Nenhuma etapa selecionada")
 
-        if etapa == "etapa1":
+        mode = etapa.get("mode", "script")
+        entry = etapa["entry"]
+
+        if mode == "module":
+            # ex: python -m automacoes.mercos.src.main --output-dir ... --max-orders ...
             output_dir = automacao_dir / "out"
             output_dir.mkdir(parents=True, exist_ok=True)
-            max_orders_val = int(self.max_orders.get())
-            return [
-                str(python_exe),
-                "-m",
-                f"automacoes.{automacao}.src.main",
-                "--output-dir",
-                str(output_dir),
-                "--max-orders",
-                str(max_orders_val),
-            ]
+            cmd = [str(python_exe), "-m", f"automacoes.{automacao}.{entry}"]
+            if etapa.get("needs_max_orders"):
+                cmd += ["--output-dir", str(output_dir), "--max-orders", self.max_orders.get()]
+            return cmd
 
-        if etapa == "etapa2":
-            return [str(python_exe), str(automacao_dir / "main_etapa2.py")]
+        # mode == "script"
+        return [str(python_exe), str(automacao_dir / entry)]
 
-        return [str(python_exe), str(automacao_dir / "main_etapa3.py")]
-
-    def _run_selected_stage(self, etapa: str):
+    def _run_selected_stage(self):
         try:
-            cmd = self._build_command(etapa)
+            cmd = self._build_command()
             self.log(f"Executando: {' '.join(cmd)}")
 
-            # stderr vai para stdout para evitar deadlock por buffer.
             self.process = subprocess.Popen(
                 cmd,
-                cwd=Path(__file__).parent,
+                cwd=ROOT_DIR,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -376,7 +385,6 @@ class HotKeyLauncher:
         if not self.process:
             self.log("Nenhum processo em execucao")
             return
-
         try:
             self.log(f"Parando processo (PID: {self.process.pid})...")
             self.process.terminate()
@@ -392,12 +400,10 @@ class HotKeyLauncher:
     def close_app(self):
         if self.is_running:
             self.stop_automation()
-
         try:
             keyboard.unhook_all()
         except Exception:
             pass
-
         self.root.quit()
         self.root.destroy()
         print("Aplicacao encerrada")
