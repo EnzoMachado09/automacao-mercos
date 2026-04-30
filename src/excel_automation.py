@@ -17,7 +17,6 @@ from datetime import datetime
 from typing import Optional
 
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 LOGGER = logging.getLogger(__name__)
@@ -151,8 +150,8 @@ class ExcelAutomation:
 
             LOGGER.info(f"      ✅ {len(produtos)} produtos, {len(quantidades)} quantidades")
         
-        # Extrair metadados (cliente e data) da primeira sheet
-        metadados = {"cliente": None, "data_pedido": None}
+        # Extrair metadados (cliente, cnpj e data) da primeira sheet
+        metadados = {"cliente": None, "cnpj": None, "data_pedido": None}
         try:
             primeira_sheet = pedido_wb[pedido_wb.sheetnames[0]]
             metadados = self._extrair_metadados(primeira_sheet)
@@ -281,45 +280,6 @@ class ExcelAutomation:
                 return (row, col_cod_encontrada, col_qtd_encontrada)
 
         return None
-
-    def _detectar_colunas_por_conteudo(
-        self, sheet: Worksheet
-    ) -> tuple[Optional[int], Optional[int]]:
-        """Detecta colunas de código e quantidade contando valores válidos em cada coluna.
-
-        Usada quando a sheet não tem linha de header (páginas 2+ do pedido).
-        Retorna (col_codigo, col_qtd). A coluna com mais códigos válidos vira código;
-        a com mais números que NÃO são códigos vira quantidade.
-        """
-        contagem_cod: dict[int, int] = {}
-        contagem_qtd: dict[int, int] = {}
-
-        for col in range(1, sheet.max_column + 1):
-            c_cod = 0
-            c_qtd = 0
-            for row in range(1, sheet.max_row + 1):
-                val = sheet.cell(row=row, column=col).value
-                if val is None:
-                    continue
-                texto = str(val).strip()
-                if self._is_codigo(texto):
-                    c_cod += 1
-                else:
-                    try:
-                        float(texto.replace(',', '.'))
-                        c_qtd += 1
-                    except ValueError:
-                        pass
-            contagem_cod[col] = c_cod
-            contagem_qtd[col] = c_qtd
-
-        col_cod = max(contagem_cod, key=contagem_cod.get) if any(contagem_cod.values()) else None
-        # Para quantidade, exclui a coluna já escolhida como código
-        contagem_qtd_filtrado = {c: v for c, v in contagem_qtd.items() if c != col_cod}
-        col_qtd = max(contagem_qtd_filtrado, key=contagem_qtd_filtrado.get) if any(contagem_qtd_filtrado.values()) else None
-
-        LOGGER.info(f"      🔍 Colunas detectadas por conteúdo: código={col_cod}, qtd={col_qtd}")
-        return col_cod, col_qtd
 
     def _extrair_produtos(
         self, sheet: Worksheet, data_start_row: int, col_cod: int, col_qtd: int

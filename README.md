@@ -1,105 +1,117 @@
-# Automacao Mercos
+# Automação Mercos
 
-Automacao em Python para exportar pedidos do sistema desktop da Mercos para PDF e salvar os arquivos com o nome do cliente.
+Automação ponta-a-ponta para o fluxo de pedidos da IABV no sistema Mercos. Cobre da exportação de pedidos do sistema desktop até a recriação automática deles no Mercos Web, passando por uma etapa intermediária de extração de dados.
 
-## Como funciona na versao inicial
+## Visão geral das etapas
 
-- O fluxo assume Windows e foco controlado na janela do sistema desktop.
-- A navegacao pela tela de pedidos e feita por teclado e cliques configuraveis.
-- A leitura do nome do cliente pode usar OCR opcional, com fallback para digitar manualmente.
-- A deteccao do fim da lista depende de uma regiao de monitoramento configuravel na tela.
+| Etapa | Entrada | Saída | Tecnologia |
+|-------|---------|-------|------------|
+| **Etapa 1** | Lista de pedidos no Mercos Desktop | PDFs nomeados por cliente | PyAutoGUI + OCR (Tesseract) |
+| **Etapa 2** | Excels de pedidos exportados | `[CLIENTE] M.xlsx` + `[CLIENTE] M.json` (cliente, CNPJ, data) | openpyxl |
+| **Etapa 3** | Pares `M.xlsx` + `M.json` | Pedidos criados no Mercos Web | Playwright |
 
-## Dependencias
+Todas as etapas são executadas pelo `hotkey_launcher.py` (interface gráfica + hotkey F6).
 
-Instale as dependencias com:
+## Setup
 
 ```bash
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
+playwright install chromium
 ```
 
-### OCR para Extração Automática de Nomes (Recomendado)
+Para a Etapa 1, instale também o **Tesseract OCR**: ver [TESSERACT_INSTALL.md](TESSERACT_INSTALL.md).
 
-A automação usa **Tesseract OCR** para extrair os nomes dos clientes automaticamente. Sem Tesseract, você terá que digitar manualmente.
+## Configuração
 
-#### Instalação Automática (Recomendado)
-
-Ao abrir o launcher, se Tesseract não estiver instalado, você verá um popup oferecendo instalação automática. Clique **SIM** para instalar.
-
-#### Instalação Manual
-
-Se a instalação automática não funcionar:
-
-1. Visite: https://github.com/UB-Mannheim/tesseract/releases
-2. Baixe: `tesseract-ocr-w64-setup-v5.3.0.exe` (ou versão mais recente)
-3. Execute e instale em: `C:\Program Files\Tesseract-OCR`
-4. Reinicie a aplicação
-
-#### Verificar Instalação
-
-Abra PowerShell e digite:
-```powershell
-& 'C:\Program Files\Tesseract-OCR\tesseract.exe' --version
-```
-
-Se mostrar a versão, está instalado! ✅
-
-#### Debug de OCR
-
-Se o OCR não está funcionando bem:
-
-1. Verifique se a região `customer_name_region` está correta em `automation_config.json`
-2. Cada execução gera screenshots de debug em `out/debug_ocr_0001.png`, etc
-3. Abra essas imagens para verificar se o nome está sendo capturado corretamente
-
-## Execucao
-
-Usando o launcher PowerShell:
-
-```powershell
-powershell -File run.ps1 -StartDate 01/04/2026 -EndDate 27/04/2026 -OutputDir "C:\Pedidos\PDF"
-```
-
-Usando o launcher em lote:
-
-```bat
-run.bat 01/04/2026 27/04/2026 "C:\Pedidos\PDF"
-```
-
-Ou, diretamente com o modulo Python:
+Cada etapa tem seu próprio JSON. Os arquivos `*.example.json` servem de template — copie para `*.json` (sem `.example`) e preencha. Os arquivos sem `.example` ficam ignorados pelo git por conterem credenciais ou caminhos pessoais.
 
 ```bash
-python -m src.main --start-date 01/04/2026 --end-date 27/04/2026 --output-dir "C:\\Pedidos\\PDF"
+cp etapa2_config.example.json etapa2_config.json
+cp etapa3_config.example.json etapa3_config.json
+cp automation_config.example.json automation_config.json
 ```
 
-## Calibracao de tela
-
-Para descobrir as posicoes dos cliques e regioes da sua tela, execute:
-
-```powershell
-.\.venv\Scripts\python.exe .\calibrate.py
+### `etapa3_config.json` (credenciais Mercos Web)
+```json
+{
+  "mercos_url": "https://app.mercos.com",
+  "email": "seu-email@exemplo.com",
+  "senha": "sua-senha",
+  "representada": "NOME_DA_REPRESENTADA",
+  "condicao_pagamento": "a vista",
+  "output_dir": "C:\\caminho\\PEDIDOS EM EXCEL"
+}
 ```
 
-Uso do calibrador:
+### `etapa2_config.json` (caminhos do fluxo Excel)
+```json
+{
+  "modelo_path": "C:\\caminho\\Planilha Modelo",
+  "pedidos_input_dir": "C:\\caminho\\PDF PARA EXCEL",
+  "output_dir": "C:\\caminho\\PEDIDOS EM EXCEL"
+}
+```
 
-- Posicione o mouse sobre o ponto que quer medir.
-- Leia as coordenadas na janela do calibrador.
-- Clique em `Capturar` ou pressione `Enter` para copiar `[x, y]` para a area de transferencia.
-- Clique em `Salvar Screenshot` para gravar uma imagem da tela atual em `screenshots\calibracao_tela.png`.
+### `automation_config.json` (coordenadas do Mercos Desktop — Etapa 1)
+Use o `calibrate.py` para descobrir as coordenadas da sua tela.
 
-Depois me envie os pontos da tela real para eu preencher os lugares faltantes no `automation_config.json`.
+## Execução
 
-## Configuracao
+### Modo padrão: launcher gráfico
+```bash
+start_launcher.bat
+```
+Selecione a etapa, configure os parâmetros e use **F6** para iniciar/parar. **ESC** fecha a aplicação.
 
-Crie um arquivo chamado `automation_config.json` na raiz do projeto para calibrar coordenadas e regioes da interface.
+### Modo direto (CLI)
 
-Campos principais sugeridos:
+```bash
+# Etapa 1 (PDFs do Mercos Desktop)
+python -m src.main --output-dir "C:\Pedidos\PDF" --max-orders 10
 
-- `export_pdf_button`: coordenada do icone de exportar para PDF.
-- `customer_name_region`: regiao da tela onde aparece o nome do cliente.
-- `selection_probe_region`: regiao que muda quando a selecao da grade muda.
-- `advance_key`: tecla usada para descer para o proximo pedido.
-- `report_variation_down_presses`: quantidade de vezes para chegar em `Pedido Geral - IABV`.
+# Etapa 2 (extração Excel)
+python main_etapa2.py
 
-## Commit automatico
+# Etapa 3 (criação no Mercos Web)
+python main_etapa3.py
+```
 
-O repositorio local esta preparado para receber commits frequentes durante a automacao do desenvolvimento.
+## Calibração da Etapa 1
+
+Para descobrir as coordenadas da sua tela:
+
+```bash
+.venv\Scripts\python.exe calibrate.py
+```
+
+- Posicione o mouse sobre o ponto desejado.
+- Pressione **Enter** ou clique em "Capturar" — copia `[x, y]` para a área de transferência.
+- Cole no `automation_config.json`.
+
+## Estrutura
+
+```
+.
+├── hotkey_launcher.py      # Interface gráfica principal (F6 para iniciar/parar)
+├── main_etapa2.py          # Entry point Etapa 2
+├── main_etapa3.py          # Entry point Etapa 3
+├── calibrate.py            # Ferramenta de calibração (Etapa 1)
+├── start_launcher.bat      # Atalho para abrir o launcher
+├── src/
+│   ├── main.py             # Entry point Etapa 1
+│   ├── automation.py       # Lógica da Etapa 1 (PyAutoGUI + OCR)
+│   ├── config.py           # Carregamento de configuração da Etapa 1
+│   ├── vision.py           # OCR com Tesseract
+│   ├── excel_automation.py # Lógica da Etapa 2 (openpyxl)
+│   └── mercos_web_automation.py  # Lógica da Etapa 3 (Playwright)
+├── *.example.json          # Templates de configuração
+└── out/                    # Logs e screenshots de debug
+```
+
+## Arquivos sensíveis (não vão para o git)
+
+- `*_config.json` (sem o `.example`) — contêm credenciais e caminhos pessoais
+- `playwright_profile/` — perfil persistente do Chrome (mantém sessão Mercos logada)
+- `out/*.png`, `out/*.log` — screenshots e logs gerados em runtime

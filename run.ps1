@@ -1,17 +1,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$StartDate,
-
-    [Parameter(Mandatory = $true)]
-    [string]$EndDate,
-
-    [Parameter(Mandatory = $true)]
     [string]$OutputDir,
 
-    [string]$Config = ".\automation_config.json",
-
     [int]$MaxOrders,
+
+    [string]$Config = ".\automation_config.json",
 
     [string]$LogLevel = "INFO"
 )
@@ -27,8 +21,6 @@ if (-not (Test-Path $python)) {
 
 $argsList = @(
     '-m', 'src.main',
-    '--start-date', $StartDate,
-    '--end-date', $EndDate,
     '--output-dir', $OutputDir,
     '--config', $Config,
     '--log-level', $LogLevel

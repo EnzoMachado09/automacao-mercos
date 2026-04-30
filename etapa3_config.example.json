@@ -1,0 +1,11 @@
+{
+  "mercos_url": "https://app.mercos.com",
+  "email": "seu-email@exemplo.com",
+  "senha": "sua-senha",
+  "representada": "NOME_DA_REPRESENTADA",
+  "condicao_pagamento": "a vista",
+  "output_dir": "C:\\caminho\\para\\PEDIDOS EM EXCEL",
+  "playwright_headless": false,
+  "playwright_slow_mo": 500,
+  "timeout_elemento_ms": 10000
+}

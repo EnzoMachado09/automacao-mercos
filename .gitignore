@@ -11,6 +11,12 @@ dist/
 *.pyd
 *.log
 automation_config.json
+etapa2_config.json
 etapa3_config.json
+clientes_map.json
+clientes_sem_match.json
 screenshots/
 playwright_profile/
+out/*.png
+out/*.log
+.claude/

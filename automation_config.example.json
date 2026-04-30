@@ -11,5 +11,6 @@
   "ui_delay": 2.0,
   "export_confirm_delay": 2.0,
   "extra_wait_on_popup": 2.0,
-  "fallback_customer_name_prefix": "pedido"
-}}
+  "fallback_customer_name_prefix": "pedido",
+  "tesseract_cmd": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+}

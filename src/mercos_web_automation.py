@@ -18,34 +18,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from playwright.sync_api import sync_playwright, Page, Browser, Playwright
 
 LOGGER = logging.getLogger(__name__)
-
-# Sufixos jurídicos removidos antes da busca no autocomplete do Mercos
-_RE_SUFIXOS = re.compile(
-    r'\s*[-–]?\s*\b(LTDA\.?|EIRELI\.?|EIRELLI|EPP|S\.?A\.?|CIA\.?|INC\.?|EIRL\.?|ME)\b.*$',
-    flags=re.IGNORECASE,
-)
-
-
-def _preparar_busca_cliente(nome: str) -> str:
-    """Remove sufixos jurídicos e limita a 4 palavras para busca no autocomplete.
-
-    Exemplos:
-      "WIEBBELLING DISTRIBUIDORA DE PECAS AUTOMOTIVAS LTDA - EPP"
-        → "WIEBBELLING DISTRIBUIDORA DE PECAS"
-      "BRUNO AUGUSTO WEHRLE LUDWIG EIRELLI-ME"
-        → "BRUNO AUGUSTO WEHRLE LUDWIG"
-    """
-    limpo = _RE_SUFIXOS.sub("", nome).strip() or nome
-    return " ".join(limpo.split()[:4])
 
 
 @dataclass
@@ -73,17 +52,13 @@ class MetadadosPedido:
 class _Sel:
     """Seletores centralizados — alterar aqui se o Mercos mudar a UI."""
     CAMPO_CLIENTE        = 'input[placeholder="Digite o nome ou CNPJ/CPF do cliente e selecione"]'
-    DROPDOWN_OPCAO_1     = '[role="option"]:first-child, .select2-result:first-child, .autocomplete-result:first-child'
-    BTN_LISTAR_REPRES    = 'text=Listar todas as representadas'
     CAMPO_REPRESENTADA   = 'input[placeholder="Digite o nome da representada e selecione"]'
     BTN_ADICIONAR_PLAN   = 'text=Adicionar por planilha'
     INPUT_FILE_UPLOAD    = 'input[type="file"]'
-    SELECT_TABELA_PRECOS = 'select'
     BTN_ADICIONAR_PROD   = 'text=Adicionar os produtos da planilha'
     NOTIF_IMPORTADOS     = 'text=produtos importados'
     BTN_TERMINEI         = 'text=Terminei de adicionar os produtos'
     CAMPO_COND_PGTO      = 'input[placeholder="obrigatório"]'
-    BTN_SALVAR_DETALHES  = 'text=Salvar detalhes'
     BTN_GERAR_PEDIDO     = 'text=Gerar pedido'
     BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
     CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"]'
@@ -354,7 +329,7 @@ class MercosWebAutomation:
 
     def _screenshot_debug(self, nome: str) -> None:
         try:
-            out = Path("out")
+            out = Path(__file__).parent.parent / "out"
             out.mkdir(exist_ok=True)
             caminho = out / f"etapa3_debug_{nome[:40]}.png"
             self._page.screenshot(path=str(caminho))
