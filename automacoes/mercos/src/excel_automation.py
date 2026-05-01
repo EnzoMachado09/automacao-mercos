@@ -305,6 +305,8 @@ class ExcelAutomation:
                 continue  # linha sem código válido (descrição continuada, totais, etc.)
 
             val_qtd = sheet.cell(row=row, column=col_qtd).value
+            if isinstance(val_qtd, str) and val_qtd.strip() == "":
+                val_qtd = None
 
             # Fallback: quando a coluna de qtd está vazia (layout desconfigurado),
             # varre as colunas à direita do código procurando o primeiro número válido
