@@ -88,7 +88,7 @@ class MercosAutomation:
         time.sleep(2.0)  # Delay apos ESC
         # Verificar se popup apareceu apos confirmar selecao
         self._press(self.config.optional_popup_key)
-        time.sleep(3.0)  # Delay apos ENTER (antes do PDF)
+        time.sleep(4.0)  # Delay apos ENTER (antes do PDF)
 
     def export_to_pdf(self) -> None:
         if self.config.export_pdf_button is None:
