@@ -306,15 +306,9 @@ class MercosWebAutomation:
         btn_alterar.click()
         self._page.wait_for_timeout(1000)
 
-        # Converte DD/MM/AAAA → YYYY-MM-DD (formato aceito pelo input[type=date])
         campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
-        try:
-            partes = data.split("/")
-            data_iso = f"{partes[2]}-{partes[1]}-{partes[0]}"
-        except Exception:
-            data_iso = data
-
-        campo_data.fill(data_iso)
+        campo_data.fill("")
+        campo_data.type(data)
         self._page.wait_for_timeout(500)
         self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
         self._page.wait_for_timeout(1000)
