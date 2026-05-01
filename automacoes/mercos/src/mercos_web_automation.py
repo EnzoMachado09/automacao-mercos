@@ -315,6 +315,9 @@ class MercosWebAutomation:
 
     def _alterar_data(self, data: str) -> None:
         LOGGER.info(f"   [12] Alterando data para: {data}...")
+        # Aguarda página estabilizar após navegação para /detalhar/
+        self._page.wait_for_load_state("domcontentloaded")
+        self._page.wait_for_timeout(500)
         btn_alterar = self._page.locator(_Sel.BTN_ALTERAR_DETALHES).first
         btn_alterar.scroll_into_view_if_needed()
         btn_alterar.click()
