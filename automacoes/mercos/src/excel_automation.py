@@ -305,6 +305,24 @@ class ExcelAutomation:
                 continue  # linha sem código válido (descrição continuada, totais, etc.)
 
             val_qtd = sheet.cell(row=row, column=col_qtd).value
+
+            # Fallback: quando a coluna de qtd está vazia (layout desconfigurado),
+            # varre as colunas à direita do código procurando o primeiro número válido
+            if val_qtd is None:
+                for c in range(col_cod + 1, sheet.max_column + 1):
+                    if c == col_qtd:
+                        continue
+                    candidate = sheet.cell(row=row, column=c).value
+                    if candidate is None:
+                        continue
+                    try:
+                        float(str(candidate).replace(',', '.'))
+                        val_qtd = candidate
+                        LOGGER.debug(f"         fallback qtd linha {row}: col {c} → {candidate}")
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
             if val_qtd is not None:
                 try:
                     # Converte 16,00 → 16 (inteiro)
