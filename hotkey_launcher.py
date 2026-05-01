@@ -350,6 +350,10 @@ class HotKeyLauncher:
             cmd = self._build_command()
             self.log(f"Executando: {' '.join(cmd)}")
 
+            import os
+            env = os.environ.copy()
+            env["PYTHONUTF8"] = "1"
+
             self.process = subprocess.Popen(
                 cmd,
                 cwd=ROOT_DIR,
@@ -358,6 +362,7 @@ class HotKeyLauncher:
                 text=True,
                 encoding="utf-8",
                 bufsize=1,
+                env=env,
             )
 
             self.log(f"Processo iniciado (PID: {self.process.pid})")

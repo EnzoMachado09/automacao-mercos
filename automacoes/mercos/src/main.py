@@ -21,12 +21,6 @@ def build_parser() -> ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     
-    # Força UTF-8 no console Windows
-    try:
-        sys.stdout.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
-    
     # Configura logging com console E arquivo
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
