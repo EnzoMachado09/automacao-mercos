@@ -60,6 +60,7 @@ class _Sel:
     BTN_TERMINEI         = 'text=Terminei de adicionar os produtos'
     CAMPO_COND_PGTO      = 'input[placeholder="obrigatório"]'
     BTN_GERAR_PEDIDO     = 'text=Gerar pedido'
+    BTN_SALVAR_DETALHES  = 'button:has-text("Salvar detalhes")'
     BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
     CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"]'
     BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento'
@@ -288,8 +289,7 @@ class MercosWebAutomation:
         campo.click()
         campo.press_sequentially(self.config.condicao_pagamento, delay=50)
         self._page.wait_for_timeout(1500)
-        # Enter fecha o modal automaticamente — não precisa clicar em "Salvar detalhes"
-        campo.press("Enter")
+        self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
         self._page.wait_for_timeout(1000)
 
     def _gerar_pedido(self) -> None:
@@ -306,10 +306,9 @@ class MercosWebAutomation:
         btn_alterar.click()
         self._page.wait_for_timeout(1000)
         campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
-        campo_data.fill("")
-        campo_data.type(data)
-        # Enter salva o modal — mesmo comportamento do campo de pagamento
-        campo_data.press("Enter")
+        campo_data.fill(data)
+        self._page.wait_for_timeout(500)
+        self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
         self._page.wait_for_timeout(1000)
 
     def _ir_para_lista_pedidos(self) -> None:
