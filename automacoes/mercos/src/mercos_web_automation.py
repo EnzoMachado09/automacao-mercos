@@ -64,6 +64,7 @@ class _Sel:
     BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
     CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"]'
     BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento'
+    LINK_PEDIDOS_SIDEBAR = 'a:has-text("PEDIDOS")'
     POPUP_FECHAR         = 'button:has-text("×"), button.close, [aria-label="Close"], button:has-text("Fechar")'
 
 
@@ -178,12 +179,12 @@ class MercosWebAutomation:
         # Login automático com credenciais do config
         if self.config.email and self.config.senha:
             LOGGER.info("🔐 Realizando login automático...")
-            self._page.locator('input[type="email"], input[name="email"]').first.fill(self.config.email)
-            self._page.locator('input[type="password"], input[name="password"]').first.fill(self.config.senha)
-            self._page.locator('button:has-text("ENTRAR"), button[type="submit"]').first.click()
-            # Aguarda a URL mudar para confirmar que o login foi aceito
-            self._page.wait_for_url(lambda url: "/pedidos" in url or "/indicadores" in url or "/orcamentos" in url, timeout=30000)
-            self._page.wait_for_load_state("networkidle", timeout=20000)
+            self._page.fill('input[type="email"], input[name="email"]', self.config.email)
+            self._page.fill('input[type="password"], input[name="password"], input[name="senha"]', self.config.senha)
+            self._page.click('button[type="submit"], input[type="submit"]')
+            # Aguarda o Mercos redirecionar para página autenticada (salva cookie de sessão)
+            self._page.wait_for_url("**/app.mercos.com/**", timeout=30000)
+            self._page.wait_for_load_state("domcontentloaded")
             LOGGER.info("✅ Login realizado com sucesso")
             self._ir_para_lista_pedidos()
             return
@@ -315,9 +316,12 @@ class MercosWebAutomation:
         self._page.wait_for_timeout(1000)
 
     def _ir_para_lista_pedidos(self) -> None:
-        # Navega diretamente via URL para garantir estado limpo,
-        # mesmo que haja modal ou overlay aberto na página atual
-        self._page.goto(f"{self.config.mercos_url}/pedidos/", wait_until="domcontentloaded")
+        # Tenta clicar na sidebar; se falhar (overlay/modal), força via URL
+        try:
+            self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click(timeout=5000)
+            self._page.wait_for_load_state("domcontentloaded")
+        except Exception:
+            self._page.goto(f"{self.config.mercos_url}/pedidos/", wait_until="domcontentloaded")
         self._page.wait_for_timeout(1000)
 
     # -------------------------------------------------------------------------
