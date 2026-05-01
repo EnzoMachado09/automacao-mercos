@@ -241,6 +241,9 @@ class MercosWebAutomation:
         campo.press_sequentially(busca, delay=50)
         self._page.wait_for_timeout(3000)
         campo.press("Enter")
+        # Aguarda o overlay da etapa_cliente sumir (confirma que cliente foi selecionado)
+        self._page.wait_for_selector('#etapa_cliente.etapa_atual', state='detached', timeout=15000)
+        self._page.wait_for_timeout(500)
 
     def _selecionar_representada(self) -> None:
         LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
