@@ -181,6 +181,8 @@ class MercosWebAutomation:
             self._page.locator('input[type="email"], input[name="email"]').first.fill(self.config.email)
             self._page.locator('input[type="password"], input[name="password"]').first.fill(self.config.senha)
             self._page.locator('button:has-text("ENTRAR"), button[type="submit"]').first.click()
+            # Aguarda a URL mudar para confirmar que o login foi aceito
+            self._page.wait_for_url(lambda url: "/pedidos" in url or "/indicadores" in url or "/orcamentos" in url, timeout=30000)
             self._page.wait_for_load_state("networkidle", timeout=20000)
             LOGGER.info("✅ Login realizado com sucesso")
             self._ir_para_lista_pedidos()
