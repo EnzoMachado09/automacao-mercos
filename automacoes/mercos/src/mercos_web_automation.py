@@ -64,7 +64,6 @@ class _Sel:
     BTN_ALTERAR_DETALHES = 'text=Alterar detalhes do pedido'
     CAMPO_DATA_EMISSAO   = 'input[name="data_emissao"]'
     BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento'
-    LINK_PEDIDOS_SIDEBAR = 'a:has-text("PEDIDOS")'
     POPUP_FECHAR         = 'button:has-text("×"), button.close, [aria-label="Close"], button:has-text("Fechar")'
 
 
@@ -279,9 +278,9 @@ class MercosWebAutomation:
 
     def _terminar_adicao_produtos(self) -> None:
         LOGGER.info("   [9] Finalizando adição de produtos...")
-        self._page.locator(_Sel.BTN_TERMINEI).click()
+        self._page.locator(_Sel.BTN_TERMINEI).click(timeout=20000)
         # Aguarda modal de detalhes abrir
-        self._page.wait_for_selector('text=Detalhes do pedido', timeout=8000)
+        self._page.wait_for_selector('text=Detalhes do pedido', timeout=15000)
 
     def _preencher_detalhes_iniciais(self) -> None:
         LOGGER.info(f"   [10] Preenchendo condição de pagamento: {self.config.condicao_pagamento}...")
@@ -314,15 +313,10 @@ class MercosWebAutomation:
         self._page.wait_for_timeout(1000)
 
     def _ir_para_lista_pedidos(self) -> None:
-        # Fecha qualquer modal aberto que bloqueie cliques na sidebar
-        try:
-            self._page.keyboard.press("Escape")
-            self._page.wait_for_timeout(300)
-        except Exception:
-            pass
-        # force=True ignora modal ou overlay que esteja bloqueando o clique
-        self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click(force=True)
-        self._page.wait_for_load_state("domcontentloaded")
+        # Navega diretamente via URL para garantir estado limpo,
+        # mesmo que haja modal ou overlay aberto na página atual
+        self._page.goto(f"{self.config.mercos_url}/pedidos/", wait_until="domcontentloaded")
+        self._page.wait_for_timeout(1000)
 
     # -------------------------------------------------------------------------
     # Utilitários
