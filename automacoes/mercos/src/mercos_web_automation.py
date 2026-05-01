@@ -241,8 +241,16 @@ class MercosWebAutomation:
         campo.press_sequentially(busca, delay=50)
         self._page.wait_for_timeout(3000)
         campo.press("Enter")
-        # Aguarda o overlay da etapa_cliente sumir (confirma que cliente foi selecionado)
-        self._page.wait_for_selector('#etapa_cliente.etapa_atual', state='detached', timeout=15000)
+        # Aguarda o campo de representada aparecer — indica que o Mercos aceitou o cliente
+        try:
+            self._page.wait_for_selector(_Sel.CAMPO_REPRESENTADA, timeout=10000)
+        except Exception:
+            # Cliente não encontrado: tenta selecionar o primeiro item do autocomplete
+            LOGGER.warning("   ⚠️  Cliente não selecionado automaticamente, tentando primeiro item da lista...")
+            self._page.keyboard.press("ArrowDown")
+            self._page.wait_for_timeout(300)
+            self._page.keyboard.press("Enter")
+            self._page.wait_for_selector(_Sel.CAMPO_REPRESENTADA, timeout=10000)
         self._page.wait_for_timeout(500)
 
     def _selecionar_representada(self) -> None:
