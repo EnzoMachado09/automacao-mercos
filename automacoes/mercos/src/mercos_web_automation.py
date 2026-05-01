@@ -201,7 +201,8 @@ class MercosWebAutomation:
 
     def _processar_pedido(self, pedido: MetadadosPedido) -> None:
         self._navegar_para_novo_pedido()
-        self._preencher_cliente(pedido.cnpj or pedido.cliente)
+        busca_cliente = pedido.cnpj if pedido.cnpj and pedido.cnpj.strip() else pedido.cliente
+        self._preencher_cliente(busca_cliente)
         self._selecionar_representada()
         self._abrir_modal_planilha()
         self._fazer_upload_xlsx(pedido.arquivo_xlsx)

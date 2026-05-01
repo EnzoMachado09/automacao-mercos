@@ -211,10 +211,17 @@ class ExcelAutomation:
                     elif texto.startswith("pessoa "):
                         cliente = str(val).strip()[len("Pessoa "):].strip()
 
-                if cnpj is None and texto in ("cpf/cgc", "cnpj", "cpf"):
-                    vizinho = sheet.cell(row=row, column=col + 1).value
-                    if vizinho:
-                        cnpj = str(vizinho).strip()
+                if cnpj is None:
+                    for label in ("cpf/cgc", "cnpj", "cpf"):
+                        if texto == label:
+                            vizinho = sheet.cell(row=row, column=col + 1).value
+                            if vizinho:
+                                cnpj = str(vizinho).strip()
+                            break
+                        elif texto.startswith(label + " "):
+                            # CNPJ embutido na mesma célula: "CPF/CGC 31.495.499/0001-00"
+                            cnpj = str(val).strip()[len(label):].strip()
+                            break
 
                 if texto == "data" and data_pedido is None:
                     vizinho = sheet.cell(row=row, column=col + 1).value
