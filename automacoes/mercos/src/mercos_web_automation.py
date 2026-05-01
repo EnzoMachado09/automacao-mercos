@@ -236,7 +236,7 @@ class MercosWebAutomation:
         campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
         campo.click()
         campo.press_sequentially(busca, delay=50)
-        self._page.wait_for_timeout(2000)
+        self._page.wait_for_timeout(3000)
         campo.press("Enter")
 
     def _selecionar_representada(self) -> None:
