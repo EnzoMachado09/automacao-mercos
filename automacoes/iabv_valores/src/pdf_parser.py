@@ -66,7 +66,7 @@ def _parse_br_float(texto: str) -> float | None:
         return None
 
 
-_COLUNA_GAP_MIN = 30  # pontos de espaço entre colunas do PDF
+_COLUNA_GAP_MIN = 15  # pontos de espaço mínimo para considerar separação de colunas
 
 
 def _extrair_pessoa(pagina) -> str | None:
@@ -90,17 +90,26 @@ def _extrair_pessoa(pagina) -> str | None:
     if not linha_words:
         return None
 
-    # Detecta maior gap entre palavras consecutivas
-    max_gap = 0.0
-    split_idx = len(linha_words)
+    # Calcula todos os gaps entre palavras consecutivas
+    gaps = []
     for i in range(1, len(linha_words)):
         gap = linha_words[i]["x0"] - linha_words[i - 1]["x1"]
-        if gap > max_gap:
-            max_gap = gap
-            split_idx = i
+        gaps.append((gap, i))
 
-    if max_gap > _COLUNA_GAP_MIN:
-        linha_words = linha_words[:split_idx]
+    if gaps:
+        max_gap, split_idx = max(gaps, key=lambda x: x[0])
+        # Corta se o maior gap for significativamente maior que a média dos outros gaps
+        # (indica separação de colunas, não apenas espaço entre palavras)
+        if len(gaps) == 1:
+            # Apenas um gap: corta se for maior que o limiar mínimo
+            if max_gap > _COLUNA_GAP_MIN:
+                linha_words = linha_words[:split_idx]
+        else:
+            outros_gaps = [g for g, _ in gaps if g != max_gap]
+            media_outros = sum(outros_gaps) / len(outros_gaps) if outros_gaps else 0
+            # Corta se o maior gap for pelo menos 2x a média dos outros E acima do mínimo
+            if max_gap > _COLUNA_GAP_MIN and max_gap > media_outros * 2:
+                linha_words = linha_words[:split_idx]
 
     return " ".join(w["text"] for w in linha_words)
 
