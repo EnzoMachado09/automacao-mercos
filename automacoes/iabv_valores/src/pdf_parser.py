@@ -13,6 +13,9 @@ _CNPJ_PREFIX = re.compile(r"^\d[\d.\-/]+\s+")
 # "Total da AC." pode aparecer com variações de espaço/pontuação
 _TOTAL_AC_LABEL = re.compile(r"Total\s+da\s+AC\.", re.IGNORECASE)
 
+# "IPI" como label de coluna
+_IPI_LABEL = re.compile(r"\bIPI\b", re.IGNORECASE)
+
 # Número no formato brasileiro: 1.234,56 ou 1234,56
 _BR_NUMBER = re.compile(r"[\d.,]+")
 
@@ -114,55 +117,91 @@ def _extrair_pessoa(pagina) -> str | None:
     return " ".join(w["text"] for w in linha_words)
 
 
-def _extrair_total_ac(paginas: list) -> float | None:
+def _extrair_ipi_e_total_ac(paginas: list) -> tuple[float | None, float | None]:
     """
-    Extrai o valor de 'Total da AC.' percorrendo as tabelas do PDF.
-    O valor fica na última coluna da linha que contém o label.
+    Extrai IPI e Total da AC. da linha de totais do PDF.
+    Retorna (ipi, total_ac). Ambos podem ser None se não encontrados.
+
+    Layout esperado (tabela ou texto):
+        Header: ... | IPI | Total da AC.
+        Valores: ... | 147,13 | 4.194,37
     """
     for pagina in paginas:
-        # Tenta extrair via tabelas (mais preciso para PDFs tabulares)
         tabelas = pagina.extract_tables()
         for tabela in tabelas:
             for i, linha in enumerate(tabela):
                 celulas = [str(c or "").strip() for c in linha]
                 linha_str = " ".join(celulas)
-                if _TOTAL_AC_LABEL.search(linha_str):
-                    # Próxima linha deve ter os valores; tenta pegar o último valor numérico
-                    if i + 1 < len(tabela):
-                        proxima = [str(c or "").strip() for c in tabela[i + 1]]
-                        for celula in reversed(proxima):
-                            if _BR_NUMBER.search(celula):
-                                valor = _parse_br_float(celula)
-                                if valor is not None:
-                                    return valor
-                    # Tenta na mesma linha (label e valor na mesma linha, colunas diferentes)
-                    for celula in reversed(celulas):
-                        if celula and not _TOTAL_AC_LABEL.search(celula):
-                            valor = _parse_br_float(celula)
-                            if valor is not None:
-                                return valor
+                if not _TOTAL_AC_LABEL.search(linha_str):
+                    continue
+
+                # Localiza índices das colunas IPI e Total da AC. no header
+                idx_ipi = next((j for j, c in enumerate(celulas) if _IPI_LABEL.search(c)), None)
+                idx_total = next((j for j, c in enumerate(celulas) if _TOTAL_AC_LABEL.search(c)), None)
+
+                # Valores ficam na próxima linha
+                if i + 1 < len(tabela):
+                    proxima = [str(c or "").strip() for c in tabela[i + 1]]
+                    ipi = None
+                    total_ac = None
+                    if idx_ipi is not None and idx_ipi < len(proxima):
+                        ipi = _parse_br_float(proxima[idx_ipi])
+                    if idx_total is not None and idx_total < len(proxima):
+                        total_ac = _parse_br_float(proxima[idx_total])
+                    if total_ac is not None:
+                        return ipi, total_ac
+
+                # Fallback: header e valores na mesma linha (colunas separadas)
+                # Pega os dois últimos números: penúltimo = IPI, último = Total da AC.
+                nums = [(j, _parse_br_float(c)) for j, c in enumerate(celulas)
+                        if c and not _TOTAL_AC_LABEL.search(c) and not _IPI_LABEL.search(c)
+                        and _BR_NUMBER.search(c) and _parse_br_float(c) is not None]
+                if len(nums) >= 2:
+                    return nums[-2][1], nums[-1][1]
+                if len(nums) == 1:
+                    return None, nums[-1][1]
 
         # Fallback: extração por texto puro
         texto = pagina.extract_text() or ""
         linhas = texto.splitlines()
         for i, linha in enumerate(linhas):
-            if _TOTAL_AC_LABEL.search(linha):
-                # Tenta encontrar número após o label na mesma linha
-                apos_label = _TOTAL_AC_LABEL.split(linha, maxsplit=1)[-1]
-                numeros = _BR_NUMBER.findall(apos_label)
-                if numeros:
-                    valor = _parse_br_float(numeros[-1])
-                    if valor is not None:
-                        return valor
-                # Tenta na linha seguinte
-                if i + 1 < len(linhas):
-                    numeros = _BR_NUMBER.findall(linhas[i + 1])
-                    if numeros:
-                        valor = _parse_br_float(numeros[-1])
-                        if valor is not None:
-                            return valor
+            if not _TOTAL_AC_LABEL.search(linha):
+                continue
+            # Verifica se IPI aparece na mesma linha
+            if _IPI_LABEL.search(linha):
+                # Header e valores juntos — pega os dois últimos números da linha
+                apos = _TOTAL_AC_LABEL.split(linha, maxsplit=1)[-1]
+                nums_total = _BR_NUMBER.findall(apos)
+                nums_ipi_match = re.search(r"\bIPI\b.*?([\d.,]+)", linha, re.IGNORECASE)
+                ipi = _parse_br_float(nums_ipi_match.group(1)) if nums_ipi_match else None
+                total_ac = _parse_br_float(nums_total[-1]) if nums_total else None
+                if total_ac is not None:
+                    return ipi, total_ac
+            # Próxima linha tem os valores
+            if i + 1 < len(linhas):
+                proxima_linha = linhas[i + 1]
+                nums = _BR_NUMBER.findall(proxima_linha)
+                if len(nums) >= 2:
+                    return _parse_br_float(nums[-2]), _parse_br_float(nums[-1])
+                if len(nums) == 1:
+                    return None, _parse_br_float(nums[-1])
+            # Tenta o número na própria linha (após o label)
+            apos_label = _TOTAL_AC_LABEL.split(linha, maxsplit=1)[-1]
+            nums = _BR_NUMBER.findall(apos_label)
+            if nums:
+                return None, _parse_br_float(nums[-1])
 
-    return None
+    return None, None
+
+
+def _extrair_valor_liquido(paginas: list) -> float | None:
+    """Retorna Total da AC. deduzido do IPI. Se IPI não encontrado, retorna Total da AC. bruto."""
+    ipi, total_ac = _extrair_ipi_e_total_ac(paginas)
+    if total_ac is None:
+        return None
+    if ipi is not None and ipi > 0:
+        return round(total_ac - ipi, 2)
+    return total_ac
 
 
 def _extrair_numero_pedido(texto: str) -> str:
@@ -188,7 +227,7 @@ def parsear_pdf(pdf_path: Path) -> PedidoInfo | None:
             if not nome_raw:
                 return None
 
-            total = _extrair_total_ac(pdf.pages)
+            total = _extrair_valor_liquido(pdf.pages)
             if total is None:
                 return None
 
