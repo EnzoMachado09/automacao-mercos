@@ -343,7 +343,10 @@ class HotKeyLauncher:
             return cmd
 
         # mode == "script"
-        return [str(python_exe), str(automacao_dir / entry)]
+        cmd = [str(python_exe), str(automacao_dir / entry)]
+        if etapa.get("args"):
+            cmd += [str(a) for a in etapa["args"]]
+        return cmd
 
     def _run_selected_stage(self):
         try:

@@ -6,19 +6,19 @@ Lê PDFs de pedidos IABV, extrai cliente + "Total da AC.", faz matching
 contra a planilha Excel e soma os valores na coluna do ano configurado.
 
 Uso:
-    python main.py
+    python main.py --ano 2026
+    python main.py --ano 2025
 
 Configuração: iabv_valores_config.json (mesmo diretório deste script)
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import sys
-import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -38,76 +38,6 @@ _ANO_CONFIG = {
         "coluna_ano": "2025",
     },
 }
-
-
-def _selecionar_ano() -> str | None:
-    """Abre um diálogo para o usuário escolher o ano. Retorna '2025', '2026' ou None se cancelar."""
-    root = tk.Tk()
-    root.withdraw()
-
-    dialog = tk.Toplevel(root)
-    dialog.title("IABV Valores — Selecionar Ano")
-    dialog.resizable(False, False)
-    dialog.grab_set()
-
-    # Centraliza na tela
-    dialog.update_idletasks()
-    w, h = 320, 160
-    sw = dialog.winfo_screenwidth()
-    sh = dialog.winfo_screenheight()
-    dialog.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
-
-    tk.Label(
-        dialog,
-        text="Qual ano deseja processar?",
-        font=("Segoe UI", 11),
-        pady=16,
-    ).pack()
-
-    ano_escolhido: list[str | None] = [None]
-
-    def escolher(ano: str) -> None:
-        ano_escolhido[0] = ano
-        dialog.destroy()
-
-    frame_botoes = tk.Frame(dialog)
-    frame_botoes.pack(pady=8)
-
-    tk.Button(
-        frame_botoes,
-        text="  2026  ",
-        font=("Segoe UI", 12, "bold"),
-        bg="#1976D2",
-        fg="white",
-        activebackground="#1565C0",
-        activeforeground="white",
-        relief="flat",
-        padx=16,
-        pady=6,
-        cursor="hand2",
-        command=lambda: escolher("2026"),
-    ).pack(side="left", padx=12)
-
-    tk.Button(
-        frame_botoes,
-        text="  2025  ",
-        font=("Segoe UI", 12),
-        bg="#546E7A",
-        fg="white",
-        activebackground="#455A64",
-        activeforeground="white",
-        relief="flat",
-        padx=16,
-        pady=6,
-        cursor="hand2",
-        command=lambda: escolher("2025"),
-    ).pack(side="left", padx=12)
-
-    dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
-    root.wait_window(dialog)
-    root.destroy()
-
-    return ano_escolhido[0]
 
 
 def _configurar_logging() -> None:
@@ -133,12 +63,9 @@ def _carregar_config(ano: str) -> Config:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         raw = json.load(f)
 
-    campos_obrigatorios = ["excel_path"]
-    faltando = [c for c in campos_obrigatorios if c not in raw]
-    if faltando:
-        raise ValueError(f"Campos obrigatórios faltando no config: {faltando}")
+    if "excel_path" not in raw:
+        raise ValueError("Campo obrigatório 'excel_path' faltando no config.")
 
-    # Sobrescreve pdfs_dir e coluna_ano com base no ano selecionado
     ano_cfg = _ANO_CONFIG[ano]
 
     return Config(
@@ -156,11 +83,11 @@ def main() -> int:
     except Exception:
         pass
 
-    # Seleciona o ano antes de tudo
-    ano = _selecionar_ano()
-    if ano is None:
-        print("Operação cancelada pelo usuário.")
-        return 0
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ano", choices=["2025", "2026"], required=True,
+                        help="Ano a processar (2025 ou 2026)")
+    args = parser.parse_args()
+    ano = args.ano
 
     _configurar_logging()
     logger = logging.getLogger(__name__)
