@@ -4,7 +4,7 @@
     "coluna_ano": "2026",
     "limiar_fuzzy": 0.75,
     "dry_run": false,
-    "fuzzy_blacklist": [
-        "HS PARTS COMERCIO DE PECAS LTDA"
+    "blacklist_pdf": [
+        "NOME DO CLIENTE QUE APARECE NO PDF MAS NAO ESTA NA PLANILHA"
     ]
 }

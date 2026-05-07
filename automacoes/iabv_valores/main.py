@@ -69,8 +69,8 @@ def _carregar_config(ano: str) -> Config:
 
     ano_cfg = _ANO_CONFIG[ano]
 
-    blacklist_raw: list[str] = raw.get("fuzzy_blacklist", [])
-    fuzzy_blacklist = {normalizar(nome) for nome in blacklist_raw}
+    blacklist_raw: list[str] = raw.get("blacklist_pdf", [])
+    blacklist_pdf = {normalizar(nome) for nome in blacklist_raw}
 
     return Config(
         pdfs_dir=Path(ano_cfg["pdfs_dir"]),
@@ -78,7 +78,7 @@ def _carregar_config(ano: str) -> Config:
         coluna_ano=ano_cfg["coluna_ano"],
         limiar_fuzzy=float(raw.get("limiar_fuzzy", 0.75)),
         dry_run=bool(raw.get("dry_run", False)),
-        fuzzy_blacklist=fuzzy_blacklist,
+        blacklist_pdf=blacklist_pdf,
     )
 
 
@@ -121,8 +121,8 @@ def main() -> int:
     logger.info(f"PDFs:    {config.pdfs_dir}")
     logger.info(f"Excel:   {config.excel_path}")
     logger.info(f"Ano:     {config.coluna_ano}")
-    if config.fuzzy_blacklist:
-        logger.info(f"Blacklist fuzzy: {len(config.fuzzy_blacklist)} cliente(s) bloqueado(s)")
+    if config.blacklist_pdf:
+        logger.info(f"Blacklist PDF: {len(config.blacklist_pdf)} cliente(s) ignorado(s)")
     logger.info("-" * 60)
 
     try:

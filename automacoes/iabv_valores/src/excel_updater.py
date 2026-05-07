@@ -25,13 +25,13 @@ class Config:
     coluna_ano: str          # "2024", "2025" ou "2026"
     limiar_fuzzy: float = 0.75
     dry_run: bool = False
-    fuzzy_blacklist: set[str] = None  # nomes (normalizados) que nunca recebem match fuzzy
+    blacklist_pdf: set[str] = None  # nomes normalizados do PDF que devem ser ignorados
 
     def __post_init__(self) -> None:
         if self.coluna_ano not in ANO_PARA_COLUNA:
             raise ValueError(f"coluna_ano deve ser '2024', '2025' ou '2026', recebido: {self.coluna_ano!r}")
-        if self.fuzzy_blacklist is None:
-            self.fuzzy_blacklist = set()
+        if self.blacklist_pdf is None:
+            self.blacklist_pdf = set()
 
 
 @dataclass
@@ -85,7 +85,11 @@ def executar(config: Config) -> ResumoExecucao:
     detalhes_match: list[tuple[PedidoInfo, ResultadoMatch]] = []
 
     for pedido in pedidos:
-        match = encontrar_match(pedido.nome_cliente, entradas, config.limiar_fuzzy, config.fuzzy_blacklist)
+        if pedido.nome_cliente in config.blacklist_pdf:
+            LOGGER.info(f"  [blacklist] {pedido.nome_cliente_raw!r} ignorado (PDF: {pedido.pdf_path.name})")
+            continue
+
+        match = encontrar_match(pedido.nome_cliente, entradas, config.limiar_fuzzy)
         if match is None:
             LOGGER.warning(f"  NAO IDENTIFICADO: {pedido.nome_cliente_raw!r} (PDF: {pedido.pdf_path.name})")
             resumo.nao_identificados.append(f"{pedido.nome_cliente_raw} | {pedido.pdf_path.name} | R$ {pedido.valor:,.2f}")

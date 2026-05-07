@@ -2,7 +2,7 @@
     "excel_path": "C:\\Users\\enzop\\OneDrive\\Área de Trabalho\\Valores Clientes\\VALORES 2026.xlsx",
     "limiar_fuzzy": 0.75,
     "dry_run": true,
-    "fuzzy_blacklist": [
-        "HS PARTS COMERCIO DE PECAS LTDA"
+    "blacklist_pdf": [
+        "AGROPARTS CARAZINHO COMERCIO DE PECAS LTDA"
     ]
 }
