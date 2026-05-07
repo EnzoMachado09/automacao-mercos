@@ -101,11 +101,17 @@ def encontrar_match(
     nome_pdf_norm: str,
     entradas: list[EntradaCliente],
     limiar_fuzzy: float = 0.75,
+    fuzzy_blacklist: set[str] | None = None,
 ) -> ResultadoMatch | None:
     """
     Tenta casar nome_pdf_norm contra as entradas do Excel.
     Ordem de prioridade: exato → alias → substring → fuzzy.
+
+    fuzzy_blacklist: conjunto de nomes normalizados que nunca podem ser
+    destino de um match fuzzy (apenas matches exatos/alias/substring passam).
     """
+    blacklist = fuzzy_blacklist or set()
+
     # 1. Exato
     for entrada in entradas:
         if entrada.nome_norm == nome_pdf_norm:
@@ -121,12 +127,10 @@ def encontrar_match(
     for entrada in entradas:
         curto, longo = sorted([entrada.nome_norm, nome_pdf_norm], key=len)
         if _contem_como_palavra(curto, longo):
-            # Score proporcional ao tamanho relativo (nome mais longo = mais genérico = menos confiança)
             score = len(curto) / max(len(longo), 1)
             matches_substring.append((entrada, score))
 
     if matches_substring:
-        # Pega o com maior score (menor diferença de tamanho)
         melhor, score = max(matches_substring, key=lambda x: x[1])
         return ResultadoMatch(melhor, nome_pdf_norm, "substring", round(score, 3))
 
@@ -134,6 +138,8 @@ def encontrar_match(
     melhor_ratio = 0.0
     melhor_entrada: EntradaCliente | None = None
     for entrada in entradas:
+        if entrada.nome_norm in blacklist:
+            continue
         candidatos = [entrada.nome_norm] + entrada.aliases
         for candidato in candidatos:
             ratio = difflib.SequenceMatcher(None, nome_pdf_norm, candidato).ratio()
