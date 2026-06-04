@@ -33,10 +33,23 @@ pyautogui.FAILSAFE = True  # mover mouse ao canto superior esquerdo aborta o scr
 
 
 def _parse_discount(s: str) -> str | None:
-    """Extrai valor numérico de '62,98%', '65%' ou após 'DEIXEI <valor>'."""
+    """Extrai valor numérico do campo de desconto.
+
+    Prioridade:
+      1. Campo começa com número (com ou sem %): '62,98%', '62,98', '65'
+      2. Número seguido de % em qualquer posição: '... 62,98% ...'
+      3. Palavra-chave DEIXEI: 'GD 68,2 / DEIXEI 65'
+    Retorna None apenas se nenhum padrão for encontrado.
+    """
+    # Campo inicia com número (desconto explícito, % opcional)
+    match = re.match(r'\s*(\d+(?:[,\.]\d+)?)\s*%?', s)
+    if match:
+        return match.group(1)
+    # % em qualquer posição da string
     match = re.search(r'(\d+(?:[,\.]\d+)?)\s*%', s)
     if match:
         return match.group(1)
+    # DEIXEI <valor>
     match = re.search(r'DEIXEI\s+(\d+(?:[,\.]\d+)?)', s, re.IGNORECASE)
     return match.group(1) if match else None
 
