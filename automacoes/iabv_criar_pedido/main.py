@@ -33,8 +33,11 @@ pyautogui.FAILSAFE = True  # mover mouse ao canto superior esquerdo aborta o scr
 
 
 def _parse_discount(s: str) -> str | None:
-    """Extrai valor numérico de string como '62,98%', '65%', '65,00%'."""
+    """Extrai valor numérico de '62,98%', '65%' ou após 'DEIXEI <valor>'."""
     match = re.search(r'(\d+(?:[,\.]\d+)?)\s*%', s)
+    if match:
+        return match.group(1)
+    match = re.search(r'DEIXEI\s+(\d+(?:[,\.]\d+)?)', s, re.IGNORECASE)
     return match.group(1) if match else None
 
 
