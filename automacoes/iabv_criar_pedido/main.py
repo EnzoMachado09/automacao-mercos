@@ -25,9 +25,8 @@ except ImportError as e:
     sys.exit(1)
 
 TXT_PATH = Path(r"C:\Users\enzop\OneDrive\Área de Trabalho\Temporarios\CRIAR PEDIDO.txt")
-DELAY_APOS_F5 = 6        # segundos de espera após gravar cada item
-DELAY_APOS_ENTER_COD = 1.0  # segundos para o sistema carregar o produto após Enter no código
-DELAY_ENTRE_TECLAS = 0.2    # pausa entre ações de teclado
+DELAY_APOS_F5 = 8    # segundos de espera após gravar cada item
+DELAY_ETAPA = 2.0    # segundos entre cada ação dentro do processamento do item
 
 pyautogui.FAILSAFE = True  # mover mouse ao canto superior esquerdo aborta o script
 
@@ -100,7 +99,7 @@ def _paste(text: str) -> None:
     """Cola texto via clipboard para garantir caracteres especiais (vírgula, etc.)."""
     pyperclip.copy(text)
     pyautogui.hotkey('ctrl', 'v')
-    time.sleep(DELAY_ENTRE_TECLAS)
+    time.sleep(DELAY_ETAPA)
 
 
 def _process_item(item: dict, index: int, total: int) -> None:
@@ -109,27 +108,26 @@ def _process_item(item: dict, index: int, total: int) -> None:
     skip_discount = item['skip_discount']
     discount = item['discount']
 
-    desc_info = f"sem desconto (**)" if skip_discount else f"desconto: {discount}%"
+    desc_info = "sem desconto (**)" if skip_discount else f"desconto: {discount}%"
     print(f"[{index}/{total}] Código: {code} | Qtd: {qty} | {desc_info}")
 
     # 1. Digitar código do produto
     _paste(code)
     pyautogui.press('enter')
-    time.sleep(DELAY_APOS_ENTER_COD)  # aguarda sistema carregar o produto
+    time.sleep(DELAY_ETAPA)
 
     # 2. Digitar quantidade
     _paste(qty)
-    time.sleep(DELAY_ENTRE_TECLAS)
+    time.sleep(DELAY_ETAPA)
 
     if skip_discount:
-        # Itens com ** ou sem desconto detectado: Enter não é necessário, vai direto F5
         pyautogui.press('f5')
     else:
         # Enter 2x para navegar até o campo de desconto
         pyautogui.press('enter')
-        time.sleep(DELAY_ENTRE_TECLAS)
+        time.sleep(DELAY_ETAPA)
         pyautogui.press('enter')
-        time.sleep(DELAY_ENTRE_TECLAS)
+        time.sleep(DELAY_ETAPA)
 
         # Digitar apenas o valor numérico do desconto (sem o símbolo %)
         _paste(discount)
