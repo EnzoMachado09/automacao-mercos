@@ -1,0 +1,11 @@
+{
+    "nome": "IABV Criar Pedido",
+    "etapas": [
+        {
+            "id": "etapa1",
+            "label": "Criar Pedido",
+            "mode": "script",
+            "entry": "main.py"
+        }
+    ]
+}
