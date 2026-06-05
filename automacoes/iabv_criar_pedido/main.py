@@ -104,6 +104,27 @@ def _parse_txt(path: Path) -> list[dict]:
     return items
 
 
+def _fechar_popup_se_aberto() -> None:
+    try:
+        import pygetwindow as gw
+        wins = gw.getWindowsWithTitle("Ucom619")
+        if wins:
+            print("  [popup] Ucom619 detectado, fechando...")
+            wins[0].activate()
+            time.sleep(0.3)
+            pyautogui.press('enter')
+            time.sleep(0.5)
+    except Exception:
+        pass
+
+
+def _aguardar_apos_f5() -> None:
+    """Aguarda após F5, verificando popup Ucom619 logo no início."""
+    time.sleep(1.5)
+    _fechar_popup_se_aberto()
+    time.sleep(DELAY_APOS_F5 - 1.5)
+
+
 def _paste(text: str) -> None:
     """Cola texto via clipboard para garantir caracteres especiais (vírgula, etc.)."""
     pyperclip.copy(text)
@@ -145,7 +166,7 @@ def _process_item(item: dict, index: int, total: int) -> None:
         pyautogui.press('f5')
 
     # Aguarda o sistema processar o item antes do próximo
-    time.sleep(DELAY_APOS_F5)
+    _aguardar_apos_f5()
 
 
 def _parse_txt_editar(path: Path) -> list[dict]:
@@ -286,7 +307,7 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
             _paste(item['discount'])
             pyautogui.press('f5')
 
-    time.sleep(DELAY_APOS_F5)
+    _aguardar_apos_f5()
 
 
 def main() -> None:
