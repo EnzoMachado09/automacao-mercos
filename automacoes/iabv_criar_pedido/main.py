@@ -20,6 +20,7 @@ Modo Editar (--editar):
     CODIGO## - ...             (linha pulada, nenhuma ação)
 """
 
+import hashlib
 import re
 import sys
 import time
@@ -34,7 +35,7 @@ except ImportError as e:
     sys.exit(1)
 
 TXT_PATH = Path(r"C:\Users\enzop\OneDrive\Área de Trabalho\Temporarios\CRIAR PEDIDO.txt")
-DELAY_APOS_F5 = 8    # segundos de espera após gravar cada item
+DELAY_APOS_F5 = 15   # timeout máximo aguardando tela estabilizar após F5
 DELAY_ETAPA = 2.0    # segundos entre cada ação dentro do processamento do item
 
 pyautogui.FAILSAFE = True  # mover mouse ao canto superior esquerdo aborta o script
@@ -104,6 +105,28 @@ def _parse_txt(path: Path) -> list[dict]:
     return items
 
 
+def _hash_tela() -> str:
+    return hashlib.md5(pyautogui.screenshot().tobytes()).hexdigest()
+
+
+def _aguardar_tela_estavel(timeout: float, intervalo: float = 0.4, n_estavel: int = 2) -> None:
+    """Aguarda a tela parar de mudar. Avança assim que `n_estavel` capturas
+    consecutivas forem idênticas, ou quando `timeout` for atingido."""
+    anterior = None
+    iguais = 0
+    inicio = time.time()
+    while time.time() - inicio < timeout:
+        atual = _hash_tela()
+        if atual == anterior:
+            iguais += 1
+            if iguais >= n_estavel:
+                return
+        else:
+            iguais = 0
+        anterior = atual
+        time.sleep(intervalo)
+
+
 def _fechar_popup_se_aberto() -> None:
     """Fecha o popup Ucom619 de aviso de cálculo de desconto, ignorando outros popups Ucom619."""
     try:
@@ -148,10 +171,11 @@ def _fechar_popup_se_aberto() -> None:
 
 
 def _aguardar_apos_f5() -> None:
-    """Aguarda após F5, verificando popup Ucom619 logo no início."""
+    """Aguarda após F5: fecha popup imediatamente e só avança quando a tela
+    parar de mudar (sistema gravou o item). DELAY_APOS_F5 é o timeout máximo."""
     time.sleep(1.5)
     _fechar_popup_se_aberto()
-    time.sleep(DELAY_APOS_F5 - 1.5)
+    _aguardar_tela_estavel(timeout=DELAY_APOS_F5 - 1.5)
 
 
 def _paste(text: str) -> None:
