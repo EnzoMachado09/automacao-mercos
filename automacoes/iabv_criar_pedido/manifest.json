@@ -6,6 +6,13 @@
             "label": "Criar Pedido",
             "mode": "script",
             "entry": "main.py"
+        },
+        {
+            "id": "etapa2",
+            "label": "Editar Pedido",
+            "mode": "script",
+            "entry": "main.py",
+            "args": ["--editar"]
         }
     ]
 }

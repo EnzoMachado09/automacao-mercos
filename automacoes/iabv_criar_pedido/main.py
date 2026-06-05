@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-Automação: Criar Pedidos IABV
-Lê CRIAR PEDIDO.txt e lança os itens no sistema IABV via PyAutoGUI.
+Automação: Criar / Editar Pedidos IABV
+Lê CRIAR PEDIDO.txt e lança ou edita itens no sistema IABV via PyAutoGUI.
 
-Formato do TXT (por linha):
-  CODIGO - QUANTIDADE - DESCONTO% / ... (resto ignorado)
-  Ex: 2110 - 20 - 62,98% / 12.24 / GD 65
+Modo Criar (padrão):
+  CODIGO - QTDun - DESCONTO% / ...   (ex: 2110 - 20un - 62,98% / 07.05.2026)
+  CODIGO** - QTDun                   (** pula campo de desconto)
 
-Itens com ** no código (ex: 3216**) pulam o campo de desconto.
-Itens sem % no campo de desconto também pulam o desconto.
+Modo Editar (--editar):
+  Itens existentes:
+    CODIGO - QTDun             (só quantidade)
+    CODIGO - DESCONTO%         (só desconto)
+    CODIGO - QTDun - DESCONTO% (ambos)
+  Itens novos no pedido (!! no código - segue fluxo de criar):
+    CODIGO!! - QTDun - DESCONTO%
+    CODIGO!! - QTDun
+    CODIGO!!** - QTDun         (** pula desconto, igual ao criar)
 """
 
 import re
@@ -139,14 +146,157 @@ def _process_item(item: dict, index: int, total: int) -> None:
     time.sleep(DELAY_APOS_F5)
 
 
+def _parse_txt_editar(path: Path) -> list[dict]:
+    """Parse TXT para modo editar pedido."""
+    items = []
+    with open(path, encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            parts = [p.strip() for p in line.split(' - ')]
+            if len(parts) < 2:
+                continue
+
+            raw_code = parts[0]
+            is_new = '!!' in raw_code
+            has_star = '**' in raw_code
+            code = raw_code.replace('!!', '').replace('**', '').strip()
+
+            if not code.isdigit():
+                continue
+
+            if is_new:
+                # Novo item: segue fluxo idêntico ao criar pedido
+                qty_match = re.match(r'\d+', parts[1])
+                if not qty_match:
+                    continue
+                qty = str(int(qty_match.group()))
+
+                discount = None
+                if not has_star and len(parts) >= 3:
+                    discount = _parse_discount(parts[2])
+
+                items.append({
+                    'code': code,
+                    'qty': qty,
+                    'discount': discount,
+                    'skip_discount': has_star or discount is None,
+                    'is_new': True,
+                })
+            else:
+                # Item existente: detectar quais campos estão presentes
+                field1 = parts[1]
+
+                if '%' in field1:
+                    # Só desconto
+                    discount = _parse_discount(field1)
+                    if discount is None:
+                        continue
+                    items.append({
+                        'code': code,
+                        'qty': None,
+                        'discount': discount,
+                        'has_qty': False,
+                        'has_discount': True,
+                        'is_new': False,
+                    })
+                else:
+                    # Quantidade (com ou sem 'un'), talvez desconto em parts[2]
+                    qty_match = re.match(r'\d+', field1)
+                    if not qty_match:
+                        continue
+                    qty = str(int(qty_match.group()))
+
+                    discount = None
+                    if len(parts) >= 3:
+                        discount = _parse_discount(parts[2])
+
+                    items.append({
+                        'code': code,
+                        'qty': qty,
+                        'discount': discount,
+                        'has_qty': True,
+                        'has_discount': discount is not None,
+                        'is_new': False,
+                    })
+
+    return items
+
+
+def _process_item_editar(item: dict, index: int, total: int) -> None:
+    code = item['code']
+    is_new = item['is_new']
+
+    if is_new:
+        desc = f"NOVO | Qtd: {item['qty']} | " + ("sem desconto (**)" if item['skip_discount'] else f"desconto: {item['discount']}%")
+    elif item['has_qty'] and item['has_discount']:
+        desc = f"qty: {item['qty']} | desconto: {item['discount']}%"
+    elif item['has_qty']:
+        desc = f"qty: {item['qty']}"
+    else:
+        desc = f"desconto: {item['discount']}%"
+
+    print(f"[{index}/{total}] Código: {code} | {desc}")
+
+    # Digitar código do produto
+    _paste(code)
+    pyautogui.press('enter')
+    time.sleep(DELAY_ETAPA)
+
+    if is_new:
+        # Fluxo idêntico ao criar pedido (sem enter extra)
+        _paste(item['qty'])
+        time.sleep(DELAY_ETAPA)
+
+        if item['skip_discount']:
+            pyautogui.press('f5')
+        else:
+            pyautogui.press('enter')
+            time.sleep(DELAY_ETAPA)
+            pyautogui.press('enter')
+            time.sleep(DELAY_ETAPA)
+            _paste(item['discount'])
+            pyautogui.press('f5')
+    else:
+        # Enter extra para navegar até o item existente no pedido
+        pyautogui.press('enter')
+        time.sleep(DELAY_ETAPA)
+
+        if item['has_qty'] and item['has_discount']:
+            _paste(item['qty'])
+            pyautogui.press('enter')
+            time.sleep(DELAY_ETAPA)
+            pyautogui.press('enter')
+            time.sleep(DELAY_ETAPA)
+            _paste(item['discount'])
+            pyautogui.press('f5')
+        elif item['has_qty']:
+            _paste(item['qty'])
+            pyautogui.press('f5')
+        else:
+            # Só desconto: pular campo de quantidade com Enter
+            pyautogui.press('enter')
+            time.sleep(DELAY_ETAPA)
+            _paste(item['discount'])
+            pyautogui.press('f5')
+
+    time.sleep(DELAY_APOS_F5)
+
+
 def main() -> None:
+    editar_mode = '--editar' in sys.argv
+    modo_label = "Editar Pedido" if editar_mode else "Criar Pedido"
+
+    print(f"Modo: {modo_label}")
     print(f"Lendo: {TXT_PATH}")
 
     if not TXT_PATH.exists():
         print(f"ERRO: Arquivo não encontrado: {TXT_PATH}")
         sys.exit(1)
 
-    items = _parse_txt(TXT_PATH)
+    items = _parse_txt_editar(TXT_PATH) if editar_mode else _parse_txt(TXT_PATH)
 
     if not items:
         print("Nenhum item encontrado no arquivo. Verifique o formato.")
@@ -164,7 +314,10 @@ def main() -> None:
     print("Iniciando!\n")
 
     for i, item in enumerate(items, 1):
-        _process_item(item, i, len(items))
+        if editar_mode:
+            _process_item_editar(item, i, len(items))
+        else:
+            _process_item(item, i, len(items))
 
     print("\nAutomação concluída!")
 
