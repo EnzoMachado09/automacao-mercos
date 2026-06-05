@@ -73,10 +73,10 @@ def _parse_txt(path: Path) -> list[dict]:
             if not code.isdigit():
                 continue
 
-            try:
-                qty = int(parts[1])
-            except ValueError:
+            qty_match = re.match(r'\d+', parts[1])
+            if not qty_match:
                 continue
+            qty = int(qty_match.group())
 
             discount = None
             if not has_star and len(parts) >= 3:
