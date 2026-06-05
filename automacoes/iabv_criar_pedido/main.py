@@ -105,15 +105,44 @@ def _parse_txt(path: Path) -> list[dict]:
 
 
 def _fechar_popup_se_aberto() -> None:
+    """Fecha o popup Ucom619 de aviso de cálculo de desconto, ignorando outros popups Ucom619."""
     try:
-        import pygetwindow as gw
-        wins = gw.getWindowsWithTitle("Ucom619")
-        if wins:
-            print("  [popup] Ucom619 detectado, fechando...")
-            wins[0].activate()
-            time.sleep(0.3)
-            pyautogui.press('enter')
-            time.sleep(0.5)
+        import ctypes
+        import ctypes.wintypes
+        user32 = ctypes.windll.user32
+
+        ENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+
+        def _texto_filhos(hwnd: int) -> str:
+            textos: list[str] = []
+            def cb(child, _):
+                n = user32.GetWindowTextLengthW(child) + 1
+                buf = ctypes.create_unicode_buffer(n)
+                user32.GetWindowTextW(child, buf, n)
+                if buf.value:
+                    textos.append(buf.value)
+                return True
+            user32.EnumChildWindows(hwnd, ENUMPROC(cb), 0)
+            return ' '.join(textos)
+
+        hwnds: list[int] = []
+        def enum_cb(hwnd, _):
+            n = user32.GetWindowTextLengthW(hwnd) + 1
+            buf = ctypes.create_unicode_buffer(n)
+            user32.GetWindowTextW(hwnd, buf, n)
+            if "Ucom619" in buf.value:
+                hwnds.append(hwnd)
+            return True
+        user32.EnumWindows(ENUMPROC(enum_cb), 0)
+
+        for hwnd in hwnds:
+            conteudo = _texto_filhos(hwnd)
+            if "Valor de Desconto" in conteudo:
+                print("  [popup] aviso de desconto detectado, fechando...")
+                user32.SetForegroundWindow(hwnd)
+                time.sleep(0.3)
+                pyautogui.press('enter')
+                time.sleep(0.5)
     except Exception:
         pass
 
