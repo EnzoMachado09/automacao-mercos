@@ -149,9 +149,9 @@ def _fechar_popup_se_aberto() -> None:
 
 def _aguardar_apos_f5() -> None:
     """Aguarda após F5, verificando popup Ucom619 logo no início."""
-    time.sleep(0.5)
+    time.sleep(1.5)
     _fechar_popup_se_aberto()
-    time.sleep(DELAY_APOS_F5 - 0.5)
+    time.sleep(DELAY_APOS_F5 - 1.5)
 
 
 def _paste(text: str) -> None:
