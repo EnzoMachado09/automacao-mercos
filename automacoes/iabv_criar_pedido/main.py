@@ -79,7 +79,7 @@ def _parse_txt(path: Path) -> list[dict]:
             code = raw_code.replace('**', '').strip()
 
             # Pula linhas que não são itens (ex: "NC - AC 527786")
-            if not code.isdigit():
+            if not re.match(r'^\d[\w-]*$', code):
                 continue
 
             qty_match = re.match(r'\d+', parts[1])
@@ -189,7 +189,7 @@ def _parse_txt_editar(path: Path) -> list[dict]:
             has_star = '**' in raw_code
             code = raw_code.replace('!!', '').replace('**', '').strip()
 
-            if not code.isdigit():
+            if not re.match(r'^\d[\w-]*$', code):
                 continue
 
             if is_new:
