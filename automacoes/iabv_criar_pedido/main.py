@@ -149,9 +149,9 @@ def _fechar_popup_se_aberto() -> None:
 
 def _aguardar_apos_f5() -> None:
     """Aguarda após F5, verificando popup Ucom619 logo no início."""
-    time.sleep(1.5)
+    time.sleep(0.5)
     _fechar_popup_se_aberto()
-    time.sleep(DELAY_APOS_F5 - 1.5)
+    time.sleep(DELAY_APOS_F5 - 0.5)
 
 
 def _paste(text: str) -> None:
@@ -185,6 +185,7 @@ def _process_item(item: dict, index: int, total: int) -> None:
         # Enter 2x para navegar até o campo de desconto
         pyautogui.press('enter')
         time.sleep(DELAY_ETAPA)
+        _fechar_popup_se_aberto()
         pyautogui.press('enter')
         time.sleep(DELAY_ETAPA)
 
@@ -309,6 +310,7 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
         else:
             pyautogui.press('enter')
             time.sleep(DELAY_ETAPA)
+            _fechar_popup_se_aberto()
             pyautogui.press('enter')
             time.sleep(DELAY_ETAPA)
             _paste(item['discount'])
@@ -322,6 +324,7 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
             _paste(item['qty'])
             pyautogui.press('enter')
             time.sleep(DELAY_ETAPA)
+            _fechar_popup_se_aberto()
             pyautogui.press('enter')
             time.sleep(DELAY_ETAPA)
             _paste(item['discount'])
