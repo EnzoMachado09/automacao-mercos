@@ -66,8 +66,6 @@ class _Sel:
     BTN_CRIAR_PEDIDO     = 'text=Criar pedido / orçamento'
     LINK_PEDIDOS_SIDEBAR = 'a:has-text("PEDIDOS")'
     POPUP_FECHAR         = 'button:has-text("×"), button.close, [aria-label="Close"], button:has-text("Fechar")'
-    # Dropdown de autocomplete (React Select / Select2 / UI genérico)
-    AUTOCOMPLETE_ABERTO  = '[role="listbox"], [role="option"], [class*="__option"], [class*="__menu-list"], .ui-autocomplete li'
 
 
 class MercosWebAutomation:
@@ -241,13 +239,9 @@ class MercosWebAutomation:
         campo = self._page.locator(_Sel.CAMPO_CLIENTE).first
         campo.click()
         campo.press_sequentially(busca, delay=50)
-        # Aguarda o dropdown de autocomplete aparecer antes de confirmar
-        try:
-            self._page.wait_for_selector(_Sel.AUTOCOMPLETE_ABERTO, timeout=10000)
-        except Exception:
-            LOGGER.warning("   ⚠️  Dropdown não detectado, tentando Enter mesmo assim...")
+        self._page.wait_for_timeout(3000)
         campo.press("Enter")
-        # Aguarda o campo de representada aparecer — confirma que o Mercos aceitou o cliente
+        # Aguarda o campo de representada aparecer — indica que o Mercos aceitou o cliente
         try:
             self._page.wait_for_selector(_Sel.CAMPO_REPRESENTADA, timeout=10000)
         except Exception:
@@ -257,20 +251,17 @@ class MercosWebAutomation:
             self._page.wait_for_timeout(300)
             self._page.keyboard.press("Enter")
             self._page.wait_for_selector(_Sel.CAMPO_REPRESENTADA, timeout=10000)
+        self._page.wait_for_timeout(500)
 
     def _selecionar_representada(self) -> None:
         LOGGER.info(f"   [3] Selecionando representada: {self.config.representada}...")
         campo = self._page.locator(_Sel.CAMPO_REPRESENTADA).first
         campo.click()
         campo.press_sequentially(self.config.representada, delay=50)
-        # Aguarda dropdown aparecer antes de confirmar
-        try:
-            self._page.wait_for_selector(_Sel.AUTOCOMPLETE_ABERTO, timeout=10000)
-        except Exception:
-            LOGGER.warning("   ⚠️  Dropdown de representada não detectado, tentando Enter...")
+        self._page.wait_for_timeout(3000)
         campo.press("Enter")
-        # Aguarda o botão de planilha aparecer — confirma que a representada foi aceita e a página atualizou
-        self._page.wait_for_selector(_Sel.BTN_ADICIONAR_PLAN, timeout=20000)
+        # Aguarda a página atualizar após seleção da representada
+        self._page.wait_for_timeout(2000)
 
     def _abrir_modal_planilha(self) -> None:
         LOGGER.info("   [4] Abrindo modal de upload de planilha...")
@@ -286,18 +277,10 @@ class MercosWebAutomation:
         LOGGER.info("   [6] Selecionando tabela de preços...")
         # React Select expõe um input[role="combobox"] dentro do dropdown visível
         self._page.get_by_role("combobox").first.click()
-        # Aguarda opções do dropdown aparecerem antes de navegar
-        try:
-            self._page.wait_for_selector('[class*="__option"], [role="option"]', timeout=5000)
-        except Exception:
-            pass
+        self._page.wait_for_timeout(500)
         self._page.keyboard.press("ArrowDown")
+        self._page.wait_for_timeout(300)
         self._page.keyboard.press("Enter")
-        # Aguarda dropdown fechar — confirma que a seleção foi registrada
-        try:
-            self._page.wait_for_selector('[class*="__option"], [role="option"]', state="hidden", timeout=5000)
-        except Exception:
-            pass
 
     def _confirmar_importacao(self) -> None:
         LOGGER.info("   [7] Confirmando importação...")
@@ -319,57 +302,42 @@ class MercosWebAutomation:
         campo = self._page.locator(_Sel.CAMPO_COND_PGTO).first
         campo.click()
         campo.press_sequentially(self.config.condicao_pagamento, delay=50)
-        # Aguarda dropdown de condição de pagamento aparecer
-        try:
-            self._page.wait_for_selector(_Sel.AUTOCOMPLETE_ABERTO, timeout=8000)
-        except Exception:
-            LOGGER.warning("   ⚠️  Dropdown de condição de pagamento não detectado...")
-        campo.press("Enter")
-        self._page.wait_for_timeout(300)  # UI registrar a seleção
+        self._page.wait_for_timeout(1500)
         self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
-        # Aguarda o modal de detalhes fechar — confirma que o save foi aceito
-        try:
-            self._page.wait_for_selector('text=Detalhes do pedido', state="hidden", timeout=10000)
-        except Exception:
-            self._page.wait_for_timeout(500)
+        self._page.wait_for_timeout(1000)
 
     def _gerar_pedido(self) -> None:
         LOGGER.info("   [11] Gerando pedido...")
         btn = self._page.locator(_Sel.BTN_GERAR_PEDIDO).first
         btn.scroll_into_view_if_needed()
         btn.click()
-        # Aguarda a navegação para a página de detalhe — confirma que o pedido foi criado
-        self._page.wait_for_url("**/detalhar/**", timeout=20000)
         self._page.wait_for_load_state("domcontentloaded")
 
     def _alterar_data(self, data: str) -> None:
         LOGGER.info(f"   [12] Alterando data para: {data}...")
+        # Aguarda página estabilizar após navegação para /detalhar/
+        self._page.wait_for_load_state("domcontentloaded")
+        self._page.wait_for_timeout(500)
         btn_alterar = self._page.locator(_Sel.BTN_ALTERAR_DETALHES).first
-        # Aguarda o botão de alterar ficar visível — página carregou completamente
-        btn_alterar.wait_for(state="visible", timeout=15000)
         btn_alterar.scroll_into_view_if_needed()
         btn_alterar.click()
-        # Aguarda o campo de data ficar visível — formulário de edição abriu
+        self._page.wait_for_timeout(1000)
+
         campo_data = self._page.locator(_Sel.CAMPO_DATA_EMISSAO).first
-        campo_data.wait_for(state="visible", timeout=10000)
         campo_data.fill("")
         campo_data.type(data)
+        self._page.wait_for_timeout(500)
         self._page.locator(_Sel.BTN_SALVAR_DETALHES).click()
-        # Aguarda o botão salvar sumir — confirma que o formulário fechou
-        try:
-            self._page.wait_for_selector(_Sel.BTN_SALVAR_DETALHES, state="hidden", timeout=10000)
-        except Exception:
-            self._page.wait_for_timeout(500)
+        self._page.wait_for_timeout(1000)
 
     def _ir_para_lista_pedidos(self) -> None:
         # Tenta clicar na sidebar; se falhar (overlay/modal), força via URL
         try:
             self._page.locator(_Sel.LINK_PEDIDOS_SIDEBAR).first.click(timeout=5000)
-            self._page.wait_for_url("**/pedidos/**", timeout=10000)
+            self._page.wait_for_load_state("domcontentloaded")
         except Exception:
             self._page.goto(f"{self.config.mercos_url}/pedidos/", wait_until="domcontentloaded")
-        # Aguarda o botão de criar aparecer — confirma que a listagem carregou
-        self._page.wait_for_selector(_Sel.BTN_CRIAR_PEDIDO, timeout=10000)
+        self._page.wait_for_timeout(1000)
 
     # -------------------------------------------------------------------------
     # Utilitários
