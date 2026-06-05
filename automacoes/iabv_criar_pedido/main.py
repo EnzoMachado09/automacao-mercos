@@ -16,6 +16,8 @@ Modo Editar (--editar):
     CODIGO!! - QTDun - DESCONTO%
     CODIGO!! - QTDun
     CODIGO!!** - QTDun         (** pula desconto, igual ao criar)
+  Itens ignorados (## no código):
+    CODIGO## - ...             (linha pulada, nenhuma ação)
 """
 
 import re
@@ -160,6 +162,8 @@ def _parse_txt_editar(path: Path) -> list[dict]:
                 continue
 
             raw_code = parts[0]
+            if '##' in raw_code:
+                continue
             is_new = '!!' in raw_code
             has_star = '**' in raw_code
             code = raw_code.replace('!!', '').replace('**', '').strip()
