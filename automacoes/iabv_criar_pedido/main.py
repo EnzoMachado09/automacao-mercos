@@ -127,6 +127,34 @@ def _aguardar_tela_estavel(timeout: float, intervalo: float = 0.4, n_estavel: in
         time.sleep(intervalo)
 
 
+def _fechar_popup_alerta_produto() -> None:
+    """Fecha o popup Ucom434 'Existem alertas para este produto' pressionando Esc."""
+    try:
+        import ctypes
+        import ctypes.wintypes
+        user32 = ctypes.windll.user32
+        ENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
+
+        hwnds: list[int] = []
+        def cb(hwnd, _):
+            n = user32.GetWindowTextLengthW(hwnd) + 1
+            buf = ctypes.create_unicode_buffer(n)
+            user32.GetWindowTextW(hwnd, buf, n)
+            if "Ucom434" in buf.value:
+                hwnds.append(hwnd)
+            return True
+        user32.EnumWindows(ENUMPROC(cb), 0)
+
+        for hwnd in hwnds:
+            print("  [popup] alerta de produto detectado, fechando com Esc...")
+            user32.SetForegroundWindow(hwnd)
+            time.sleep(0.3)
+            pyautogui.press('escape')
+            time.sleep(0.5)
+    except Exception:
+        pass
+
+
 def _fechar_popup_se_aberto() -> None:
     """Fecha o popup Ucom619 de aviso de cálculo de desconto, ignorando outros popups Ucom619."""
     try:
@@ -198,6 +226,7 @@ def _process_item(item: dict, index: int, total: int) -> None:
     _paste(code)
     pyautogui.press('enter')
     time.sleep(DELAY_ETAPA)
+    _fechar_popup_alerta_produto()
 
     # 2. Digitar quantidade
     _paste(qty)
@@ -323,6 +352,7 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
     _paste(code)
     pyautogui.press('enter')
     time.sleep(DELAY_ETAPA)
+    _fechar_popup_alerta_produto()
 
     if is_new:
         # Fluxo idêntico ao criar pedido (sem enter extra)
