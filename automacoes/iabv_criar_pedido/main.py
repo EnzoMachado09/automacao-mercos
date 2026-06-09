@@ -20,7 +20,6 @@ Modo Editar (--editar):
     CODIGO## - ...             (linha pulada, nenhuma ação)
 """
 
-import hashlib
 import re
 import sys
 import time
@@ -105,19 +104,31 @@ def _parse_txt(path: Path) -> list[dict]:
     return items
 
 
-def _hash_tela() -> str:
-    return hashlib.md5(pyautogui.screenshot().tobytes()).hexdigest()
+def _frame_tela():
+    """Captura a tela como thumbnail em tons de cinza, para comparação tolerante
+    a micro-mudanças (ex.: cursor de texto piscando, relógio)."""
+    img = pyautogui.screenshot().convert('L').resize((80, 45))
+    return list(img.getdata())
+
+
+def _telas_iguais(a, b, limiar_pixel: int = 24, limiar_frac: float = 0.01) -> bool:
+    """Considera duas capturas iguais se diferirem em poucos pixels. Ignora
+    micro-mudanças (caret piscando ocupa só alguns pixels da thumbnail)."""
+    if a is None or b is None:
+        return False
+    diferentes = sum(1 for x, y in zip(a, b) if abs(x - y) > limiar_pixel)
+    return diferentes / len(a) <= limiar_frac
 
 
 def _aguardar_tela_estavel(timeout: float, intervalo: float = 0.4, n_estavel: int = 2) -> None:
     """Aguarda a tela parar de mudar. Avança assim que `n_estavel` capturas
-    consecutivas forem idênticas, ou quando `timeout` for atingido."""
+    consecutivas forem (quase) idênticas, ou quando `timeout` for atingido."""
     anterior = None
     iguais = 0
     inicio = time.time()
     while time.time() - inicio < timeout:
-        atual = _hash_tela()
-        if atual == anterior:
+        atual = _frame_tela()
+        if _telas_iguais(atual, anterior):
             iguais += 1
             if iguais >= n_estavel:
                 return
