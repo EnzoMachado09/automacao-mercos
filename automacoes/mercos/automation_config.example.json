@@ -3,7 +3,7 @@
   "customer_name_region": [480, 290, 390, 40],
   "save_dialog_filename_field": [540, 730],
   "save_button": [1170, 800],
-  "report_variation_down_presses": 4,
+  "report_variation_down_presses": 5,
   "report_variation_confirm_key": "esc",
   "optional_popup_key": "enter",
   "advance_key": "down",
