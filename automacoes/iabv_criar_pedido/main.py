@@ -43,7 +43,9 @@ DELAY_ETAPA = 2.0    # segundos entre cada ação dentro do processamento do ite
 # Recalibre com:  python calibrar_campos.py  (posicione o mouse e aperte F2)
 CAMPO_CODIGO = (55, 93)
 CAMPO_QTD = (57, 207)
+CAMPO_QTD_ALT = (59, 208)
 CAMPO_DESCONTO = (148, 271)
+CAMPO_DESCONTO_ALT = (145, 272)
 # Botão que fecha o popup que sempre aparece ao EDITAR um item existente
 # (substitui o segundo Enter que usávamos para navegar até o item).
 POPUP_EDITAR = (1104, 597)
@@ -437,9 +439,15 @@ def _paste(text: str) -> None:
     time.sleep(DELAY_ETAPA)
 
 
-def _clicar_campo(coord: tuple[int, int], limpar: bool = True) -> None:
+def _clicar_campo(coord: tuple[int, int], limpar: bool = True,
+                  alt_coord: tuple[int, int] | None = None) -> None:
     """Clica direto no campo informado e (por padrão) seleciona todo o conteúdo
-    com Ctrl+A, para que o que for digitado em seguida SUBSTITUA o valor atual."""
+    com Ctrl+A. Se alt_coord for fornecido, clica nele primeiro (posição
+    alternativa) e depois no coord principal — garante acerto quando o campo
+    muda de posição entre itens."""
+    if alt_coord is not None:
+        pyautogui.click(alt_coord[0], alt_coord[1])
+        time.sleep(0.5)
     pyautogui.click(coord[0], coord[1])
     time.sleep(0.4)
     if limpar:
@@ -447,9 +455,10 @@ def _clicar_campo(coord: tuple[int, int], limpar: bool = True) -> None:
         time.sleep(0.2)
 
 
-def _digitar_campo(coord: tuple[int, int], valor: str) -> None:
+def _digitar_campo(coord: tuple[int, int], valor: str,
+                   alt_coord: tuple[int, int] | None = None) -> None:
     """Clica no campo, limpa e cola o valor."""
-    _clicar_campo(coord)
+    _clicar_campo(coord, alt_coord=alt_coord)
     _paste(valor)
 
 
@@ -469,11 +478,11 @@ def _process_item(item: dict, index: int, total: int) -> None:
     _fechar_popup_alerta_produto()
 
     # 2. Quantidade: clica direto no campo de Qtd e digita
-    _digitar_campo(CAMPO_QTD, qty)
+    _digitar_campo(CAMPO_QTD, qty, alt_coord=CAMPO_QTD_ALT)
 
     # 3. Desconto: clica direto no campo de % e digita (só o valor numérico)
     if not skip_discount:
-        _digitar_campo(CAMPO_DESCONTO, discount)
+        _digitar_campo(CAMPO_DESCONTO, discount, alt_coord=CAMPO_DESCONTO_ALT)
         _fechar_popup_se_aberto()
 
     # 4. Grava o item
@@ -587,9 +596,9 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
 
     if is_new:
         # Item novo: mesmo fluxo do criar pedido (clica em cada campo)
-        _digitar_campo(CAMPO_QTD, item['qty'])
+        _digitar_campo(CAMPO_QTD, item['qty'], alt_coord=CAMPO_QTD_ALT)
         if not item['skip_discount']:
-            _digitar_campo(CAMPO_DESCONTO, item['discount'])
+            _digitar_campo(CAMPO_DESCONTO, item['discount'], alt_coord=CAMPO_DESCONTO_ALT)
             _fechar_popup_se_aberto()
     else:
         # Item existente: no lugar do segundo Enter, clica para fechar o popup
@@ -598,9 +607,9 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
         time.sleep(DELAY_ETAPA)
 
         if item['has_qty']:
-            _digitar_campo(CAMPO_QTD, item['qty'])
+            _digitar_campo(CAMPO_QTD, item['qty'], alt_coord=CAMPO_QTD_ALT)
         if item['has_discount']:
-            _digitar_campo(CAMPO_DESCONTO, item['discount'])
+            _digitar_campo(CAMPO_DESCONTO, item['discount'], alt_coord=CAMPO_DESCONTO_ALT)
             _fechar_popup_se_aberto()
 
     # Grava o item
