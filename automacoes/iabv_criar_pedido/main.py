@@ -42,10 +42,10 @@ DELAY_ETAPA = 2.0    # segundos entre cada ação dentro do processamento do ite
 # com Enter (o que desincronizava e jogava a quantidade no campo de %).
 # Recalibre com:  python calibrar_campos.py  (posicione o mouse e aperte F2)
 CAMPO_CODIGO = (55, 93)
-CAMPO_QTD = (57, 207)
-CAMPO_QTD_ALT = (59, 208)
-CAMPO_DESCONTO = (148, 271)
-CAMPO_DESCONTO_ALT = (145, 272)
+CAMPO_QTD = (58, 208)
+CAMPO_QTD_ALT = (55, 174)
+CAMPO_DESCONTO = (145, 271)
+CAMPO_DESCONTO_ALT = (148, 238)
 # Botão que fecha o popup que sempre aparece ao EDITAR um item existente
 # (substitui o segundo Enter que usávamos para navegar até o item).
 POPUP_EDITAR = (1104, 597)
