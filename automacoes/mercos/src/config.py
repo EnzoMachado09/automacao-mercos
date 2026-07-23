@@ -27,7 +27,7 @@ class AutomationConfig:
     selection_probe_region: Region | None = None
     save_dialog_filename_field: Point | None = None
     save_button: Point | None = None
-    report_variation_down_presses: int = 5
+    report_variation_down_presses: int = 6
     report_variation_confirm_key: str = "esc"
     optional_popup_key: str = "enter"
     advance_key: str = "down"
@@ -95,7 +95,7 @@ class AutomationConfig:
             selection_probe_region=parse_region(data.get("selection_probe_region")),
             save_dialog_filename_field=parse_point(data.get("save_dialog_filename_field")),
             save_button=parse_point(data.get("save_button")),
-            report_variation_down_presses=int(data.get("report_variation_down_presses", 5)),
+            report_variation_down_presses=int(data.get("report_variation_down_presses", 6)),
             report_variation_confirm_key=str(data.get("report_variation_confirm_key", "esc")),
             optional_popup_key=str(data.get("optional_popup_key", "enter")),
             advance_key=str(data.get("advance_key", "down")),
