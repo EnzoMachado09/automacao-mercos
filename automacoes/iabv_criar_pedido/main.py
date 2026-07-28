@@ -46,6 +46,20 @@ CAMPO_QTD = (58, 208)
 CAMPO_QTD_ALT = (55, 174)
 CAMPO_DESCONTO = (145, 271)
 CAMPO_DESCONTO_ALT = (148, 238)
+
+# O formulário aparece em duas alturas diferentes dependendo do produto, por
+# isso cada campo tem mais de uma posição possível. A automação NÃO clica em
+# todas: clica na primeira, confere pelo cursor se acertou o campo e só tenta a
+# seguinte se errou. (Clicar nas duas seguidas jogava o valor no campo errado.)
+CAMPOS_CODIGO = [CAMPO_CODIGO]
+CAMPOS_QTD = [CAMPO_QTD, CAMPO_QTD_ALT]
+CAMPOS_DESCONTO = [CAMPO_DESCONTO, CAMPO_DESCONTO_ALT]
+
+# Tolerâncias para aceitar que o cursor caiu dentro do campo clicado. Y é
+# apertado (os dois layouts ficam ~34px distantes); X é folgado porque o cursor
+# pula para o fim do texto existente, à esquerda de onde clicamos.
+TOL_CARET_Y = 15
+TOL_CARET_X = (-260, 25)
 # Botão que fecha o popup que sempre aparece ao EDITAR um item existente
 # (substitui o segundo Enter que usávamos para navegar até o item).
 POPUP_EDITAR = (1104, 597)
@@ -439,27 +453,171 @@ def _paste(text: str) -> None:
     time.sleep(DELAY_ETAPA)
 
 
-def _clicar_campo(coord: tuple[int, int], limpar: bool = True,
-                  alt_coord: tuple[int, int] | None = None) -> None:
-    """Clica direto no campo informado e (por padrão) seleciona todo o conteúdo
-    com Ctrl+A. Se alt_coord for fornecido, clica nele primeiro (posição
-    alternativa) e depois no coord principal — garante acerto quando o campo
-    muda de posição entre itens."""
-    if alt_coord is not None:
-        pyautogui.click(alt_coord[0], alt_coord[1])
-        time.sleep(0.5)
+# ---------------------------------------------------------------------------
+# Preenchimento verificado de campos
+#
+# Duas checagens com papéis diferentes:
+#   1. POSIÇÃO (caret) — só ESCOLHE entre as coordenadas alternativas de um
+#      campo. É uma dica: nunca aborta sozinha, porque o caret nem sempre
+#      existe (campo sem cursor piscando no momento da leitura).
+#   2. CONTEÚDO — depois de colar, relê o campo pelo clipboard e compara com o
+#      valor esperado. Esta sim manda: se não bater, o item é abortado ANTES
+#      do F5, em vez de gravar errado.
+# ---------------------------------------------------------------------------
+
+_SENTINELA_CLIPBOARD = '\x00__campo_vazio__'
+
+# _verificacao_posicao: usa o cursor para escolher entre as coordenadas
+# alternativas de um campo. Deixe False para sempre usar a coordenada principal.
+# _verificacao_conteudo: relê o campo depois de colar (desligue com
+# --sem-conferencia se algum dia o sistema deixar de responder ao Ctrl+C).
+_verificacao_posicao = True
+_verificacao_conteudo = True
+
+
+class _FalhaCampo(Exception):
+    """Não foi possível garantir que o valor entrou no campo certo."""
+
+
+def _origem_janela() -> tuple[int, int] | None:
+    """Canto superior-esquerdo da janela Ucom619, ou None se indisponível."""
+    janela = _hwnd_janela_item()
+    if not janela:
+        return None
+    r = _rect(janela)
+    if _rect_zerado(r):
+        return None
+    return (r.left, r.top)
+
+
+def _caret_no_campo(coord: tuple[int, int]) -> bool | None:
+    """True/False se o cursor está no campo da coordenada clicada.
+    None quando não dá para saber (sem janela, sem permissão ou sem caret —
+    vários campos só criam o cursor quando começam a ser editados)."""
+    try:
+        rel = _campo_focado_rel()
+    except _SemPermissao:
+        return None
+    if rel is None:
+        return None
+    origem = _origem_janela()
+    if origem is None:
+        return None
+    dx = rel[0] - (coord[0] - origem[0])
+    dy = rel[1] - (coord[1] - origem[1])
+    return abs(dy) <= TOL_CARET_Y and TOL_CARET_X[0] <= dx <= TOL_CARET_X[1]
+
+
+def _focar_campo(candidatos: list[tuple[int, int]], nome: str) -> tuple[int, int]:
+    """Clica no campo e devolve a coordenada usada.
+
+    Com mais de uma coordenada possível, usa o cursor para escolher qual delas
+    é o campo de verdade no layout atual. Nunca levanta erro: se a checagem de
+    posição não estiver disponível ou não confirmar nenhuma, fica na primeira
+    coordenada e deixa a conferência de conteúdo decidir."""
+    if len(candidatos) == 1 or not _verificacao_posicao:
+        coord = candidatos[0]
+        pyautogui.click(coord[0], coord[1])
+        time.sleep(0.4)
+        return coord
+
+    for coord in candidatos:
+        pyautogui.click(coord[0], coord[1])
+        time.sleep(0.4)
+        if _caret_no_campo(coord):
+            return coord
+
+    # Nenhuma confirmou (cursor indisponível ou fora das tolerâncias): volta
+    # para a principal — a releitura do valor é quem vai reprovar, se for o caso.
+    coord = candidatos[0]
     pyautogui.click(coord[0], coord[1])
     time.sleep(0.4)
-    if limpar:
-        pyautogui.hotkey('ctrl', 'a')
-        time.sleep(0.2)
+    return coord
 
 
-def _digitar_campo(coord: tuple[int, int], valor: str,
-                   alt_coord: tuple[int, int] | None = None) -> None:
-    """Clica no campo, limpa e cola o valor."""
-    _clicar_campo(coord, alt_coord=alt_coord)
-    _paste(valor)
+def _limpar_campo() -> None:
+    """Apaga o conteúdo do campo focado. Usa seleção por Home/End em vez de
+    Ctrl+A, que nesses campos legados não seleciona nada — e fazia o valor novo
+    ser concatenado ao antigo (origem dos valores 'aleatórios' no desconto)."""
+    pyautogui.press('end')
+    pyautogui.hotkey('shift', 'home')
+    time.sleep(0.15)
+    pyautogui.press('delete')
+    time.sleep(0.15)
+    # Se o 'end' não tiver funcionado, limpa também o que sobrou à direita.
+    pyautogui.hotkey('shift', 'end')
+    time.sleep(0.15)
+    pyautogui.press('delete')
+    time.sleep(0.15)
+
+
+def _ler_campo() -> str | None:
+    """Devolve o conteúdo do campo focado via seleção + clipboard.
+    None quando o app não devolveu nada (campo vazio ou Ctrl+C sem efeito)."""
+    pyperclip.copy(_SENTINELA_CLIPBOARD)
+    pyautogui.press('home')
+    pyautogui.hotkey('shift', 'end')
+    time.sleep(0.15)
+    pyautogui.hotkey('ctrl', 'c')
+    time.sleep(0.4)
+    lido = pyperclip.paste()
+    # Desfaz a seleção: qualquer tecla enviada depois (Enter, F5) com o texto
+    # selecionado poderia apagar o valor que acabamos de conferir.
+    pyautogui.press('end')
+    time.sleep(0.1)
+    if lido == _SENTINELA_CLIPBOARD:
+        return None
+    return lido.strip()
+
+
+def _como_numero(s: str) -> float | None:
+    limpo = re.sub(r'[^\d,.]', '', s)
+    if ',' in limpo:
+        limpo = limpo.replace('.', '').replace(',', '.')
+    try:
+        return float(limpo)
+    except ValueError:
+        return None
+
+
+def _valores_batem(esperado: str, lido: str) -> bool:
+    """Compara tolerando a formatação do sistema (66,50 == 66,5 == 66.50,
+    20 == 20,00)."""
+    if not lido:
+        return False
+    if lido == esperado:
+        return True
+    ne, nl = _como_numero(esperado), _como_numero(lido)
+    if ne is not None and nl is not None:
+        return abs(ne - nl) < 0.005
+    return lido.upper().startswith(esperado.upper())
+
+
+def _preencher_campo(candidatos: list[tuple[int, int]], valor: str, nome: str,
+                     tentativas: int = 3) -> None:
+    """Foca o campo, limpa, cola o valor e confirma que foi digitado ali."""
+    ultimo_lido = None
+    for tentativa in range(1, tentativas + 1):
+        _focar_campo(candidatos, nome)
+        _limpar_campo()
+        _paste(valor)
+
+        if not _verificacao_conteudo:
+            return
+
+        lido = _ler_campo()
+        if lido is not None and _valores_batem(valor, lido):
+            return
+
+        # Leitura vazia = ou o clique não pegou o campo, ou a colagem não
+        # surtiu efeito. Nos dois casos o valor não está lá: vale repetir.
+        ultimo_lido = lido if lido else '(vazio)'
+        print(f"  [tentativa {tentativa}/{tentativas}] {nome}: esperado '{valor}', "
+              f"campo está '{ultimo_lido}'")
+        time.sleep(0.5)
+
+    raise _FalhaCampo(
+        f"campo '{nome}': esperado '{valor}', mas ficou '{ultimo_lido}'")
 
 
 def _process_item(item: dict, index: int, total: int) -> None:
@@ -472,17 +630,17 @@ def _process_item(item: dict, index: int, total: int) -> None:
     print(f"[{index}/{total}] Código: {code} | Qtd: {qty} | {desc_info}")
 
     # 1. Código do produto: clica no campo, cola e confirma com Enter
-    _digitar_campo(CAMPO_CODIGO, code)
+    _preencher_campo(CAMPOS_CODIGO, code, 'código')
     pyautogui.press('enter')
     time.sleep(DELAY_ETAPA)
     _fechar_popup_alerta_produto()
 
     # 2. Quantidade: clica direto no campo de Qtd e digita
-    _digitar_campo(CAMPO_QTD, qty, alt_coord=CAMPO_QTD_ALT)
+    _preencher_campo(CAMPOS_QTD, qty, 'quantidade')
 
     # 3. Desconto: clica direto no campo de % e digita (só o valor numérico)
     if not skip_discount:
-        _digitar_campo(CAMPO_DESCONTO, discount, alt_coord=CAMPO_DESCONTO_ALT)
+        _preencher_campo(CAMPOS_DESCONTO, discount, 'desconto')
         _fechar_popup_se_aberto()
 
     # 4. Grava o item
@@ -589,16 +747,16 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
     print(f"[{index}/{total}] Código: {code} | {desc}")
 
     # Código do produto: clica no campo, cola e confirma com Enter
-    _digitar_campo(CAMPO_CODIGO, code)
+    _preencher_campo(CAMPOS_CODIGO, code, 'código')
     pyautogui.press('enter')
     time.sleep(DELAY_ETAPA)
     _fechar_popup_alerta_produto()
 
     if is_new:
         # Item novo: mesmo fluxo do criar pedido (clica em cada campo)
-        _digitar_campo(CAMPO_QTD, item['qty'], alt_coord=CAMPO_QTD_ALT)
+        _preencher_campo(CAMPOS_QTD, item['qty'], 'quantidade')
         if not item['skip_discount']:
-            _digitar_campo(CAMPO_DESCONTO, item['discount'], alt_coord=CAMPO_DESCONTO_ALT)
+            _preencher_campo(CAMPOS_DESCONTO, item['discount'], 'desconto')
             _fechar_popup_se_aberto()
     else:
         # Item existente: no lugar do segundo Enter, clica para fechar o popup
@@ -607,9 +765,9 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
         time.sleep(DELAY_ETAPA)
 
         if item['has_qty']:
-            _digitar_campo(CAMPO_QTD, item['qty'], alt_coord=CAMPO_QTD_ALT)
+            _preencher_campo(CAMPOS_QTD, item['qty'], 'quantidade')
         if item['has_discount']:
-            _digitar_campo(CAMPO_DESCONTO, item['discount'], alt_coord=CAMPO_DESCONTO_ALT)
+            _preencher_campo(CAMPOS_DESCONTO, item['discount'], 'desconto')
             _fechar_popup_se_aberto()
 
     # Grava o item
@@ -618,9 +776,15 @@ def _process_item_editar(item: dict, index: int, total: int) -> None:
 
 
 def main() -> None:
+    global _verificacao_conteudo
+
     if '--diag' in sys.argv:
         _diag()
         return
+
+    if '--sem-conferencia' in sys.argv:
+        _verificacao_conteudo = False
+        print("Conferência de conteúdo DESLIGADA (--sem-conferencia).")
 
     editar_mode = '--editar' in sys.argv
     modo_label = "Editar Pedido" if editar_mode else "Criar Pedido"
@@ -650,10 +814,22 @@ def main() -> None:
     print("Iniciando!\n")
 
     for i, item in enumerate(items, 1):
-        if editar_mode:
-            _process_item_editar(item, i, len(items))
-        else:
-            _process_item(item, i, len(items))
+        try:
+            if editar_mode:
+                _process_item_editar(item, i, len(items))
+            else:
+                _process_item(item, i, len(items))
+        except _FalhaCampo as e:
+            # Para antes do F5: melhor parar do que gravar o item errado.
+            print(f"\nPARADO no item {i}/{len(items)} (código {item['code']}): {e}")
+            print("Este item NÃO foi gravado (o F5 não chegou a ser pressionado).")
+            print("Causas prováveis, nesta ordem:")
+            print("  1. A janela do IABV não está maximizada ou perdeu o foco.")
+            print("  2. As coordenadas dos campos mudaram — recalibre com: "
+                  "python calibrar_campos.py")
+            print("  3. O sistema parou de responder ao Ctrl+C nos campos — nesse")
+            print("     caso rode com --sem-conferencia (perde a checagem de valores).")
+            sys.exit(1)
 
     print("\nAutomação concluída!")
 
