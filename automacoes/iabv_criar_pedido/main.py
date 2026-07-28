@@ -439,20 +439,38 @@ def _paste(text: str) -> None:
     time.sleep(DELAY_ETAPA)
 
 
+def _limpar_campo() -> None:
+    """Apaga o conteúdo do campo focado.
+
+    Usa seleção por End/Shift+Home em vez de Ctrl+A: nesses campos legados o
+    Ctrl+A não seleciona nada, então o valor colado em seguida era CONCATENADO
+    ao que já estava lá (0,00 + 66,50 virava 0,0066,50) — origem dos valores
+    'aleatórios' no campo de desconto."""
+    pyautogui.press('end')
+    pyautogui.hotkey('shift', 'home')
+    time.sleep(0.15)
+    pyautogui.press('delete')
+    time.sleep(0.15)
+    # Se o 'end' não tiver funcionado, limpa também o que sobrou à direita.
+    pyautogui.hotkey('shift', 'end')
+    time.sleep(0.15)
+    pyautogui.press('delete')
+    time.sleep(0.15)
+
+
 def _clicar_campo(coord: tuple[int, int], limpar: bool = True,
                   alt_coord: tuple[int, int] | None = None) -> None:
-    """Clica direto no campo informado e (por padrão) seleciona todo o conteúdo
-    com Ctrl+A. Se alt_coord for fornecido, clica nele primeiro (posição
-    alternativa) e depois no coord principal — garante acerto quando o campo
-    muda de posição entre itens."""
+    """Clica direto no campo informado e (por padrão) apaga o conteúdo atual.
+    Se alt_coord for fornecido, clica nele primeiro (posição alternativa) e
+    depois no coord principal — garante acerto quando o campo muda de posição
+    entre itens."""
     if alt_coord is not None:
         pyautogui.click(alt_coord[0], alt_coord[1])
         time.sleep(0.5)
     pyautogui.click(coord[0], coord[1])
     time.sleep(0.4)
     if limpar:
-        pyautogui.hotkey('ctrl', 'a')
-        time.sleep(0.2)
+        _limpar_campo()
 
 
 def _digitar_campo(coord: tuple[int, int], valor: str,
