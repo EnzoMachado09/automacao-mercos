@@ -433,8 +433,21 @@ def _aguardar_apos_f5() -> None:
 
 
 def _paste(text: str) -> None:
-    """Cola texto via clipboard para garantir caracteres especiais (vírgula, etc.)."""
+    """Cola texto via clipboard para garantir caracteres especiais (vírgula, etc.).
+
+    Só pressiona Ctrl+V depois de confirmar que o clipboard já contém o valor.
+    Sem essa espera, quando o clipboard ainda não tinha atualizado o Ctrl+V
+    colava o valor ANTERIOR — e como a ordem é código, quantidade, desconto,
+    o código caía no campo de quantidade e a quantidade no campo de %."""
     pyperclip.copy(text)
+
+    for _ in range(40):  # até 2s aguardando o clipboard refletir o valor
+        if pyperclip.paste() == text:
+            break
+        time.sleep(0.05)
+    else:
+        print(f"  [aviso] clipboard não confirmou '{text}'; colando mesmo assim")
+
     pyautogui.hotkey('ctrl', 'v')
     time.sleep(DELAY_ETAPA)
 
