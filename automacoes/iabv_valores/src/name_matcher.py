@@ -10,8 +10,8 @@ import openpyxl
 # Colunas do Excel
 COL_NOME = 1       # A — RAZÃO SOCIAL
 COL_2024 = 2       # B
-COL_2025 = 3       # C
-COL_2026 = 4       # D
+COL_2025 = 5       # E
+COL_2026 = 6       # F
 COL_ALIASES = 10   # J
 
 LINHA_HEADER = 4
