@@ -12,7 +12,7 @@ COL_NOME = 1       # A — RAZÃO SOCIAL
 COL_2024 = 2       # B
 COL_2025 = 3       # C
 COL_2026 = 4       # D
-COL_ALIASES = 7    # G
+COL_ALIASES = 10   # J
 
 LINHA_HEADER = 4
 LINHA_DADOS_INICIO = 5

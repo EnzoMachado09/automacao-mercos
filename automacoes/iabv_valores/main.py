@@ -148,7 +148,7 @@ def main() -> int:
             "\n".join(resumo.nao_identificados), encoding="utf-8"
         )
         logger.warning(f"  Lista salva em: {nao_id_path}")
-        logger.warning("  Verifique e adicione aliases na coluna G da planilha.")
+        logger.warning("  Verifique e adicione aliases na coluna J da planilha.")
 
     if resumo.matches_fuzzy > 0:
         logger.warning("  (!) Verifique os matches fuzzy no log - podem ser incorretos.")
