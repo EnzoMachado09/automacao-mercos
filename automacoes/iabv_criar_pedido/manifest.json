@@ -13,6 +13,12 @@
             "mode": "script",
             "entry": "main.py",
             "args": ["--editar"]
+        },
+        {
+            "id": "etapa3",
+            "label": "Criar Pedido (Teste Simples - teclado)",
+            "mode": "script",
+            "entry": "main_simples.py"
         }
     ]
 }
