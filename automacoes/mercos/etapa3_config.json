@@ -1,0 +1,12 @@
+{
+  "mercos_url": "https://app.mercos.com",
+  "email": "",
+  "senha": "",
+  "representada": "IABV",
+  "condicao_pagamento": "a vista",
+  "output_dir": "C:\\Users\\enzop\\OneDrive\\Área de Trabalho\\PEDIDOS EM EXCEL",
+  "playwright_headless": false,
+  "playwright_slow_mo": 500,
+  "timeout_elemento_ms": 10000,
+  "descricao": "Configuração da Etapa 3 - Automação Web Mercos"
+}
