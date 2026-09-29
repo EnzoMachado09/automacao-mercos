@@ -13,6 +13,9 @@ dist/
 automation_config.json
 etapa2_config.json
 etapa3_config.json
+# Coordenadas/caminhos das etapas 1 e 2 do Mercos são versionados (sem dados sensíveis)
+!automacoes/mercos/automation_config.json
+!automacoes/mercos/etapa2_config.json
 clientes_map.json
 clientes_sem_match.json
 screenshots/
